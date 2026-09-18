@@ -5,3 +5,7 @@ Labels for your records: fill in the tracks (type them, paste a shop's list, or 
 Works in the browser on phones and computers, and keeps working offline after the first visit. Your records are stored only in your own browser; use Backup to move them between devices.
 
 Open it: https://raulrotman-commits.github.io/vinyl-labels/
+
+## License
+
+Copyright (c) 2026 WaxTag. All rights reserved. See [LICENSE](LICENSE).
