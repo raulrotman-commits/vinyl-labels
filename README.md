@@ -4,4 +4,4 @@ Labels for your records: fill in the tracks (type them, paste a shop's list, or 
 
 Works in the browser on phones and computers, and keeps working offline after the first visit. Your records are stored only in your own browser; use Backup to move them between devices.
 
-Open it: add the link here once GitHub Pages is on.
+Open it: https://raulrotman-commits.github.io/vinyl-labels/
