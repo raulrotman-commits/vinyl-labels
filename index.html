@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vinyl labels</title>
+<link href="fonts/fonts.css" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="theme-color" content="#16202A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Vinyl labels">
+<meta name="description" content="Labels for your records: tracks, BPM measured with the microphone, and print-ready stickers.">
+<script src="vendor/qrcode.min.js"></script>
+<script>
+// iOS app: WKWebView ignores window.print(), so hand printing to the native side (AppViewController.swift)
+(()=>{const orig=window.print.bind(window);window.print=()=>{const h=window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.nativePrint;h?h.postMessage(null):orig()}})();
+</script>
+<style>
+:root{--bg:#E9EDF0;--panel:#FFFFFF;--ink:#16202A;--muted:#5E6C78;--line:#CBD3D9;--red:#C8463A;--field:#F5F7F8}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#12181D;--panel:#1B232A;--ink:#E6EBEF;--muted:#98A6B1;--line:#2E3A43;--field:#151C22}}
+:root[data-theme="dark"]{--bg:#12181D;--panel:#1B232A;--ink:#E6EBEF;--muted:#98A6B1;--line:#2E3A43;--field:#151C22}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Assistant,"Noto Sans JP","Hiragino Sans","Segoe UI",Arial,sans-serif;font-size:16px;line-height:1.5}
+.wrap{max-width:1080px;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) 16px 60px}
+header{display:flex;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.disc{width:42px;height:42px;border-radius:50%;background:#16202A;display:grid;place-items:center;flex:none}
+.disc span{width:16px;height:16px;border-radius:50%;background:var(--red);box-shadow:0 0 0 3px #16202A,0 0 0 4px #3a4650}
+h1{font-size:24px;margin:0;font-weight:700}
+.sub{color:var(--muted);font-size:14px;margin:0}
+.langbox{margin-inline-start:auto;min-width:140px}
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.panel h2{font-size:17px;margin:0 0 10px;font-weight:700}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+label.f{display:block;font-size:13px;color:var(--muted)}
+input[type=text],input[type=url],select{width:100%;font:inherit;font-size:15px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:7px 9px;margin-top:3px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--red);outline-offset:1px}
+.tracks{width:100%;border-collapse:collapse;margin-top:6px}
+.tracks th{font-size:12px;color:var(--muted);font-weight:600;text-align:start;padding:4px 3px}
+.tracks td{padding:3px}
+.tracks input,.tracks select{margin-top:0;padding:6px;font-size:14px}
+.tscroll{overflow-x:auto}
+button{font:inherit;font-size:15px;border-radius:6px;padding:8px 14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+button.main{background:#16202A;color:#fff;border-color:#16202A}
+:root[data-theme="dark"] button.main{background:#E6EBEF;color:#16202A;border-color:#E6EBEF}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) button.main{background:#E6EBEF;color:#16202A;border-color:#E6EBEF}}
+button.x{padding:4px 8px;color:var(--muted)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.toggles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px}
+.toggles label{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:15px;cursor:pointer}
+.toggles input{width:18px;height:18px;accent-color:var(--red)}
+.gap{height:14px}
+.stage{background:repeating-linear-gradient(45deg,var(--field) 0 8px,var(--panel) 8px 16px);border-radius:8px;padding:18px;display:flex;justify-content:center;overflow:auto}
+.scale{transform:scale(1.35);transform-origin:top center}
+.size{font-size:13px;color:var(--muted);text-align:center;margin-top:8px}
+.queue{list-style:none;margin:8px 0 0;padding:0}
+.queue li{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:6px 0;font-size:14px}
+.hint{font-size:13px;color:var(--muted);margin:8px 0 0}
+#nav{display:none}
+body.steps #nav{display:flex;position:fixed;inset-inline-start:0;inset-inline-end:0;bottom:0;gap:10px;align-items:center;
+  background:var(--panel);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:6}
+#nav .mid{flex:1;min-width:0;text-align:center}
+#nav .name{font-weight:700;font-size:15px}
+#nav .num{font-size:12px;color:var(--muted)}
+.dots{display:flex;gap:4px;justify-content:center;margin-top:4px}
+.dot{width:16px;height:16px;display:grid;place-items:center}
+.dot::before{content:"";width:9px;height:9px;border-radius:50%;border:1px solid var(--line);background:var(--field)}
+.dot.on::before{background:var(--red);border-color:var(--red)}
+body.steps [data-step]{display:none}
+body.steps [data-step].on{display:block}
+body.steps .gap{display:none}
+body.steps .wrap{padding-bottom:110px}
+body.steps .grid{grid-template-columns:1fr}
+#viewSel button[aria-pressed="true"]{background:#16202A;color:#fff;border-color:#16202A}
+:root[data-theme="dark"] #viewSel button[aria-pressed="true"]{background:#E6EBEF;color:#16202A;border-color:#E6EBEF}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) #viewSel button[aria-pressed="true"]{background:#E6EBEF;color:#16202A;border-color:#E6EBEF}}
+#mock{width:100%;overflow:hidden}
+.mock{position:relative;margin:0 auto;border-radius:2px;max-width:100%}
+.mock .lblwrap{position:absolute;transform-origin:top left}
+.sleeve{background:linear-gradient(135deg,#d9d2c5,#efeae0);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25),0 2px 10px rgba(0,0,0,.25)}
+.sleeve .spine{position:absolute;inset-inline-start:0;top:0;bottom:0;background:rgba(0,0,0,.12)}
+.disc{background:radial-gradient(circle at 50% 50%,#1b1b1b 0 12%,#111 12% 13%,#1d1d1d 13% 100%);border-radius:50%;
+  box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.disc .center{position:absolute;border-radius:50%;background:#C8463A;left:50%;top:50%;transform:translate(-50%,-50%)}
+.disc .hole{position:absolute;border-radius:50%;background:var(--panel);left:50%;top:50%;transform:translate(-50%,-50%)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;max-width:520px;width:100%;max-height:85vh;overflow:auto}
+.modal h2{margin:0 0 6px}
+.scanlist{list-style:none;margin:10px 0 0;padding:0}
+.scanlist li{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);padding:7px 0}
+.scanlist input[type=checkbox]{width:18px;height:18px;accent-color:var(--red);flex:none}
+.scanlist .p{font-weight:600;width:28px;flex:none}
+.scanlist .n{flex:1;min-width:0;font-size:15px}
+.scanlist .n b{font-weight:600}
+.scanlist .t{color:var(--muted);font-size:14px}
+.phead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.phead h2{margin:0}
+.lib{list-style:none;margin:8px 0 0;padding:0;max-height:320px;overflow-y:auto}
+.lib li{display:flex;align-items:center;gap:4px;border-top:1px solid var(--line)}
+.lib li.cur{background:var(--field)}
+.lib .open{flex:1;min-width:0;text-align:start;border:0;background:none;padding:7px 6px;border-radius:0;display:block}
+.lib .open b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib .meta{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib .x{flex:none}
+.bar{height:10px;background:var(--field);border:1px solid var(--line);border-radius:5px;margin-top:6px;overflow:hidden}
+
+.lbl{width:62mm;background:#fff;color:#000;padding:2.6mm 2.8mm 2.4mm;direction:ltr;text-align:left;font-family:"Archivo Narrow","Arial Narrow","Noto Sans JP","Hiragino Sans",Arial,sans-serif;border:0.3mm solid #000}
+.lbl .top{display:flex;justify-content:space-between;align-items:flex-start;gap:2mm}
+.lbl .t{font-size:10.5pt;font-weight:600;line-height:1.15}
+.lbl .m{font-size:7.5pt;line-height:1.3}
+.lbl .vo{font-size:6.5pt;border:0.25mm solid #000;padding:0.3mm 1.2mm;white-space:nowrap}
+.lbl .rule{border-bottom:0.45mm solid #000;margin:1.4mm 0 0.8mm}
+.lbl .tr{padding:0.9mm 0}
+.lbl .tr.sideend{border-bottom:0.25mm dashed #000;margin-bottom:0.5mm}
+.lbl .l1{display:flex;gap:1.5mm;font-size:8pt;line-height:1.25}
+.lbl .pos{font-weight:600;width:5mm;flex:none}
+.lbl .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lbl .nm b{font-weight:600}
+.lbl .l2{display:flex;align-items:center;gap:2.5mm;font-size:7.5pt;margin:0.4mm 0 0 6.5mm}
+.lbl .bpm b{font-weight:600;font-size:8.5pt}
+.lbl .note{font-style:italic}
+.lbl.round{position:relative;width:95mm;height:95mm;border-radius:50%;padding:0;border-width:0.3mm;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden}
+.lbl.round .half{position:absolute;left:50%;transform:translateX(-50%);width:66mm;max-height:33mm;overflow:hidden;
+  display:flex;flex-direction:column}
+.lbl.round .half.up{bottom:calc(50% + 5.5mm);justify-content:flex-end}
+.lbl.round .half.down{top:calc(50% + 5.5mm);justify-content:flex-start}
+.lbl.round .holegap{display:none}
+.lbl.round .top{justify-content:center}
+.lbl.round .t{font-size:9pt}
+.lbl.round .m{font-size:6.8pt}
+.lbl.round .rule{margin:1.2mm 0 0}
+.lbl.round .l1,.lbl.round .l2{font-size:6.6pt;line-height:1.15}
+.lbl.round .tr{padding:0.45mm 0}
+.lbl.round .l2{margin-top:0.2mm}
+.lbl.round .en i{width:1.8mm;height:1.9mm}
+.lbl.round .l1{justify-content:center;gap:2mm}
+.lbl.round .nm{flex:0 1 auto;max-width:44mm}
+.lbl.round .pos{width:auto}
+.lbl.round .l2{margin-left:0;justify-content:flex-start}
+.lbl.round .foot{margin-top:1mm;padding-top:0.8mm}
+.lbl.round .qr{width:9mm;height:9mm}
+.lbl.round .qr img,.lbl.round .qr canvas{width:9mm!important;height:9mm!important}
+.lbl.round .vo{font-size:5.8pt}
+.lbl.round .hole{position:absolute;width:7.3mm;height:7.3mm;border-radius:50%;border:0.25mm dashed #000;
+  left:50%;top:50%;transform:translate(-50%,-50%);z-index:1}
+.lbl .l2{flex-wrap:wrap}
+.lbl .blank{display:inline-block;width:7mm;border-bottom:0.25mm solid #000}
+.lbl .en{display:flex;gap:0.35mm}
+.lbl .en i{display:block;width:2.1mm;height:2.3mm;border:0.22mm solid #000}
+.lbl .en i.on{background:#000}
+.lbl.red .en i{border-color:#C8463A}
+.lbl.red .en i.on{background:#C8463A}
+.lbl.red .ennum{color:#C8463A}
+.lbl .foot{display:flex;justify-content:space-between;align-items:flex-end;border-top:0.45mm solid #000;margin-top:1.2mm;padding-top:1.2mm}
+.lbl .foot .m{font-size:6.5pt}
+.lbl .qr{width:12mm;height:12mm}
+.lbl .qr img,.lbl .qr canvas{width:12mm!important;height:12mm!important;display:block}
+#print{display:none}
+@media print{
+  html,body{background:#fff;margin:0;padding:0;height:auto;overflow:hidden}
+  .wrap,#nav,.modal{display:none!important}   /* nothing from the app UI reaches the paper */
+  #print{display:block}
+  .sheet{position:relative;width:210mm;page-break-after:always;overflow:hidden}
+  .sheet:last-child{page-break-after:auto} /* no blank page at the end */
+  .cell{position:absolute;outline:0.25mm dashed #444}
+  .cell.roundcell{outline:none;border:0.25mm dashed #444;border-radius:50%}
+  .cell .lbl,.single .lbl{border:none}
+  .tick{position:absolute;background:#000}
+  .corner{position:absolute;border:0 solid #000}
+  .credit{position:absolute;left:0;right:0;text-align:center;font-family:"Archivo Narrow",Arial,sans-serif;font-size:7pt;color:#555}
+}
+</style>
+<style id="pagesize"></style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="disc" aria-hidden="true"><span></span></div>
+  <div><h1 data-i="app_title"></h1><p class="sub" data-i="app_sub"></p></div>
+  <label class="f langbox"><span data-i="lang"></span><select id="langSel"></select></label>
+</header>
+<div class="grid">
+<div>
+  <section class="panel" data-step="0">
+    <div class="phead"><h2 data-i="lib_h"></h2><button class="main" id="newRec" data-i="new_rec"></button></div>
+    <input type="text" id="libSearch" dir="auto" style="display:none">
+    <ul class="lib" id="lib"></ul>
+    <p class="hint" data-i="lib_hint"></p>
+  </section>
+  <div class="gap"></div>
+  <section class="panel" data-step="1">
+    <h2 data-i="rec_h"></h2>
+    <div class="row">
+      <label class="f"><span data-i="f_title"></span><input type="text" id="title" dir="auto"></label>
+      <label class="f"><span data-i="f_artist"></span><input type="text" id="artist" dir="auto"></label>
+      <label class="f"><span data-i="f_label"></span><input type="text" id="label" dir="auto"></label>
+      <label class="f"><span data-i="f_cat"></span><input type="text" id="cat" dir="ltr"></label>
+      <label class="f"><span data-i="f_year"></span><input type="text" id="year" dir="auto"></label>
+      <label class="f"><span data-i="f_style"></span><input type="text" id="style" dir="auto"></label>
+    </div>
+    <div class="gap"></div>
+    <label class="f"><span data-i="f_link"></span><input type="url" id="link" dir="ltr"></label>
+    <div class="gap"></div>
+    <label class="f"><span data-i="f_note"></span><input type="text" id="note" dir="auto"></label>
+  </section>
+  <div class="gap"></div>
+  <section class="panel" data-step="2">
+    <h2 data-i="tracks_h"></h2>
+    <p class="hint" style="margin-top:0" data-i="fill_from"></p>
+    <div class="btns" style="margin-top:6px"><button class="main" id="scanBtn" data-i="scan" style="display:none"></button><button class="main" id="pasteBtn" data-i="paste"></button></div>
+    <p class="hint" data-i="scan_hint" id="scanHint" style="display:none"></p>
+    <div class="tscroll">
+    <table class="tracks">
+      <thead><tr><th style="width:52px" data-i="th_side"></th><th data-i="th_artist"></th><th data-i="th_title"></th><th style="width:64px" data-i="th_time"></th><th style="width:62px">BPM</th><th style="width:70px" data-i="th_energy"></th><th data-i="th_note"></th><th style="width:34px"></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    </div>
+    <div class="btns"><button id="addTrack" data-i="add_track"></button></div>
+    <p class="hint" data-i="tracks_hint"></p>
+  </section>
+  <div class="gap"></div>
+  <section class="panel" data-step="3">
+    <h2 data-i="mic_h"></h2>
+    <div class="row">
+      <label class="f"><span data-i="m_track"></span><select id="mTrack"></select></label>
+      <label class="f"><span data-i="m_dur"></span><select id="mDur"><option value="15"></option><option value="20" selected></option><option value="30"></option></select></label>
+    </div>
+    <div class="gap"></div>
+    <label class="f"><span data-i="m_range"></span><select id="mRange"><option value="100-150" data-i="r_house" selected></option><option value="80-120" data-i="r_down"></option><option value="130-180" data-i="r_fast"></option></select></label>
+    <div class="btns"><button class="main" id="mStart" data-i="m_start"></button><button id="tap" data-i="tap"></button></div>
+    <div id="mLive" style="display:none;margin-top:12px">
+      <div style="display:flex;justify-content:space-between;font-size:14px"><span data-i="listening"></span><span id="mLeft"></span></div>
+      <div class="bar"><div id="mLevel" style="height:100%;width:0;background:var(--red);transition:width 80ms"></div></div>
+      <div style="height:4px;background:var(--field);border-radius:2px;margin-top:6px;overflow:hidden"><div id="mProg" style="height:100%;width:0;background:var(--muted)"></div></div>
+    </div>
+    <div id="mResult" style="display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+      <div style="display:flex;align-items:baseline;gap:10px"><span id="mBpm" style="font-size:40px;font-weight:700;line-height:1" dir="ltr"></span><span id="mUnit" style="color:var(--muted)">BPM</span><span id="mExact" style="color:var(--muted);font-size:13px" dir="ltr"></span></div>
+      <div id="mConf" style="font-size:14px;margin-top:6px"></div>
+      <div class="btns"><button class="main" id="mUse"></button><button id="mAgain" data-i="m_again"></button></div>
+    </div>
+    <p class="hint" data-i="mic_hint"></p>
+  </section>
+</div>
+<div>
+  <section class="panel" data-step="4">
+    <h2 data-i="show_h"></h2>
+    <div class="toggles" id="toggles"></div>
+    <div class="gap"></div>
+    <div class="row">
+      <label class="f"><span data-i="f_shape"></span><select id="shape"><option value="rect" data-i="shape_rect"></option><option value="round" data-i="shape_round"></option></select></label>
+      <label class="f"><span data-i="f_color"></span><select id="color"><option value="black" data-i="c_black"></option><option value="red" data-i="c_red"></option></select></label>
+      <label class="f"><span data-i="f_enmode"></span><select id="enmode"><option value="bar" data-i="en_bar"></option><option value="num" data-i="en_num"></option></select></label>
+    </div>
+  </section>
+  <div class="gap"></div>
+
+  <div class="gap"></div>
+
+  <div class="gap"></div>
+  <section class="panel" data-step="0">
+    <h2 data-i="backup_h"></h2>
+    <div class="btns" style="margin-top:0"><button id="exportB" data-i="export"></button><button id="importB" data-i="import"></button></div>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+    <p class="hint" data-i="backup_hint"></p>
+  </section>
+  <div class="gap"></div>
+  <section class="panel" data-step="5">
+    <h2 data-i="a4_h"></h2>
+    <ul class="queue" id="queue"></ul>
+    <p class="hint" id="a4Status"></p>
+    <div class="btns"><button id="printA4" data-i="print_all"></button><button id="clearQ" data-i="clear"></button></div>
+    <p class="hint" data-i="a4_hint"></p>
+  </section>
+  <div class="gap"></div>
+  <section class="panel" data-step="5">
+    <h2 data-i="preview_h"></h2>
+    <div class="btns" id="viewSel" style="margin:0 0 10px">
+      <button data-view="flat" data-i="view_flat"></button>
+      <button data-view="sleeve" data-i="view_sleeve"></button>
+      <button data-view="disc" data-i="view_disc"></button>
+    </div>
+    <div class="stage" id="stage"><div class="scale" id="scaleBox"><div id="preview"></div></div></div>
+    <div id="mock" style="display:none"></div>
+    <p class="hint" id="mockHint" data-i="mock_hint" style="display:none"></p>
+    <p class="hint" id="holeHint" data-i="hole_hint" style="display:none"></p>
+    <p class="hint" id="roundFull" style="display:none;color:var(--red)"></p>
+    <div class="size" id="size"></div>
+    <div class="btns">
+      <button class="main" id="printA4b" data-i="print_a4"></button>
+      <button id="printOne" data-i="print_label"></button>
+      <button id="addQueue" data-i="add_queue"></button>
+    </div>
+  </section>
+</div>
+</div>
+</div>
+<nav id="nav" aria-label="steps">
+  <button id="prev" data-i="back"></button>
+  <div class="mid"><div class="name" id="stepName"></div><div class="num" id="stepNum"></div><div class="dots" id="dots"></div></div>
+  <button class="main" id="next" data-i="next"></button>
+</nav>
+<div id="print"></div>
+<script>
+const I18N={
+he:{dir:"rtl",name:"עברית",lang:"שפה",app_title:"מדבקות לתקליטים",app_sub:"ממלאים, בוחרים מה מופיע, ומדפיסים",rec_h:"התקליט",f_title:"שם התקליט",f_artist:"אמן",f_label:"לייבל",f_cat:"מספר קטלוגי",f_year:"שנה ומדינה (אם ידוע)",f_style:"סגנון",f_link:"קישור ל-deejay.de (ל-QR)",tracks_h:"הטראקים",th_side:"צד",th_artist:"אמן",th_title:"שם",th_time:"משך",th_energy:"אנרגיה",add_track:"הוספת טראק",del_track:"מחיקת טראק",tracks_hint:"את ה-BPM אפשר למדוד במיקרופון (למטה) או להקליד ידנית. אנרגיה 1–10 לפי האוזן שלך.",mic_h:"מדידת BPM במיקרופון",m_track:"טראק",m_dur:"משך האזנה",dur:"{n} שניות",m_range:"טווח קצב",r_house:"100–150 (האוס, טכנו)",r_down:"80–120 (דאון-טמפו, היפ הופ)",r_fast:"130–180 (טראנס, דראם אנד בס)",m_start:"התחל מדידה",tap:"הקשה בקצב",listening:"מקשיב…",left:"{n} שנ׳",m_again:"מדידה חוזרת",use:"הכנס ל-{p}",conf_high:"ביטחון גבוה",conf_mid:"ביטחון בינוני. כדאי למדוד שוב בקטע עם תוף ברור.",conf_low:"ביטחון נמוך. מדוד שוב, קרוב יותר לרמקול, או השתמש בהקשה בקצב.",silent:"כמעט לא נשמע צליל. קרב את הטלפון לרמקול והגבר את הווליום.",mic_denied:"אין גישה למיקרופון. אשר גישה בדפדפן, ואם זה לא עוזר פתח את הקישור ישירות בספארי או בכרום.",mic_unavail:"המיקרופון לא זמין בתצוגה הזו. פתח את הקישור ישירות בדפדפן של הטלפון.",tap_note:"לפי ההקשות שלך. המשך להקיש כדי לדייק.",mic_hint:"שים את הטלפון קרוב לרמקול, בקטע שהתוף הבסיסי נשמע בו ברור. הפיץ' בפטיפון על 0 ומהירות נכונה (33 או 45), אחרת גם המדידה תזוז.",show_h:"מה יופיע על המדבקה",f_color:"צבע הדפסה",c_black:"שחור בלבד",c_red:"שחור ואדום",f_enmode:"הצגת אנרגיה",en_bar:"פס",en_num:"מספר",preview_h:"תצוגה",size:"62 × {h} מ\"מ",print_a4:"הדפסה על דף A4",print_label:"מדפסת מדבקות 62 מ\"מ",add_queue:"הוספה לדף A4",a4_h:"דף A4",queue_empty:"הרשימה ריקה. הוסף מדבקות מהתצוגה.",print_all:"הדפסת כל הרשימה על A4",clear:"ניקוי הרשימה",a4_hint:"בחלון ההדפסה בוחרים גודל אמיתי (100%), לא \"התאמה לדף\".",remove:"הסרה",lib_h:"ספריית התקליטים",new_rec:"תקליט חדש",search:"חיפוש…",untitled:"ללא שם",n_tracks:"{n} טראקים",now_open:"פתוח עכשיו",add_a4:"הוספה לדף A4",del_rec:"מחיקת התקליט",del_confirm:"למחוק את \"{n}\" מהספרייה?",added_a4:"נוסף לדף A4",lib_hint:"כל שינוי נשמר אוטומטית בספרייה. לוחצים על תקליט כדי לפתוח ולערוך אותו.",backup_h:"גיבוי",export:"ייצוא גיבוי",import:"ייבוא גיבוי",backup_hint:"הגיבוי הוא קובץ עם כל התקליטים ורשימת A4. כדאי לשמור אותו ב-iCloud Drive או לשלוח לעצמך מדי פעם. בייבוא, תקליטים קיימים לא נמחקים.",import_done:"הגיבוי נטען: נוספו {a} תקליטים, עודכנו {u}.",import_bad:"הקובץ הזה לא נראה כמו גיבוי של האפליקציה.",mic_denied_app:"אין גישה למיקרופון. אשר גישה בהגדרות של האייפון, תחת האפליקציה הזו, ונסה שוב.",scan:"צילום רשימת הטראקים",scan_hint:"מצלמים את גב העטיפה או את התווית של התקליט. הטקסט נקרא במכשיר עצמו, בלי אינטרנט, ואפשר לתקן הכול לפני שמוסיפים.",scan_camera:"צילום",scan_library:"בחירה מהתמונות",cancel:"ביטול",scan_wait:"קורא את התמונה…",scan_title:"הטראקים שזוהו",scan_none:"לא זוהו טראקים בתמונה. נסה שוב מקרוב, בתאורה טובה ובלי זווית.",scan_replace:"החלפת הרשימה",scan_append:"הוספה לרשימה",scan_sel:"מסומנים: {n}",paste:"הדבקת רשימה",paste_title:"הדבקת רשימה",paste_ph:"מדביקים כאן את רשימת הטראקים מ-Beatport, מ-Traxsource, מ-Discogs, מ-deejay.de או ממייל הרכישה",paste_hint:"אפשר להעתיק את רשימת הטראקים מהאתר שקנית בו, להדביק, ולתקן מה שצריך. אם יש BPM ברשימה, הוא ייכנס אוטומטית.",paste_do:"פירוק הרשימה",f_note:"הערה על התקליט",th_note:"הערה",type_in:"הקלדה ידנית",fill_from:"איך למלא את הטראקים",s_lib:"ספרייה",s_rec:"התקליט",s_tracks:"טראקים",s_mic:"BPM",s_label:"המדבקה",s_print:"הדפסה",back:"הקודם",next:"הבא",step_of:"שלב {a} מתוך {b}",view_flat:"המדבקה",view_sleeve:"על העטיפה",view_disc:"על התקליט",mock_hint:"כך המדבקה נראית בגודל אמיתי ביחס לעטיפה ולתקליט, לפני שמדפיסים.",rec_found:"פרטי התקליט שזוהו",scan_nothing:"לא זוהו פרטים בתמונה.",made_with:"נוצר ב{app}",cut_hint:"גוזרים לאורך הקווים המקווקווים.",a4_fill:"בדף A4 אחד נכנסות עד {per} מדבקות בגודל הנוכחי. כדי לחסוך בנייר, אפשר לעבור על כמה תקליטים בספרייה, ללחוץ +A4 על כל אחד, ולהדפיס את כולם יחד על אותו דף.",a4_status:"ברשימה: {n} · דפים: {pages} · פנוי בדף האחרון: {free}. אפשר להוסיף עוד תקליטים לפני ההדפסה.",a4_full:"ברשימה: {n} · דפים: {pages}, מלאים.",f_shape:"צורת המדבקה",shape_rect:"מלבן 62 מ\"מ, לעטיפה",shape_round:"עיגול 95 מ\"מ, לתווית התקליט",size_round:"קוטר {d} מ\"מ",hole_hint:"החור במרכז מסומן בקו מקווקו. נוקבים אותו לפני ההדבקה, אחרת המדבקה לא תיכנס על הציר.",round_full:"התוכן לא נכנס במדבקה העגולה. כבה שדות (למשל QR או אנרגיה), קצר שמות, או עבור למדבקה מלבנית.",
+ fl:{label:"לייבל",cat:"מספר קטלוגי",year:"שנה ומדינה",style:"סגנון",vo:"Vinyl only",qr:"QR",time:"משך",bpm:"BPM",energy:"אנרגיה",note:"הערה לטראק",rnote:"הערה לתקליט"}},
+en:{dir:"ltr",name:"English",lang:"Language",app_title:"Vinyl labels",app_sub:"Fill in, pick the fields, print",rec_h:"The record",f_title:"Title",f_artist:"Artist",f_label:"Label",f_cat:"Catalog number",f_year:"Year and country (if known)",f_style:"Style",f_link:"deejay.de link (for the QR code)",tracks_h:"Tracks",th_side:"Side",th_artist:"Artist",th_title:"Title",th_time:"Length",th_energy:"Energy",add_track:"Add track",del_track:"Delete track",tracks_hint:"Measure BPM with the microphone (below) or type it in. Energy 1–10 by ear.",mic_h:"Measure BPM with the microphone",m_track:"Track",m_dur:"Listening time",dur:"{n} seconds",m_range:"Tempo range",r_house:"100–150 (house, techno)",r_down:"80–120 (downtempo, hip hop)",r_fast:"130–180 (trance, drum and bass)",m_start:"Start measuring",tap:"Tap tempo",listening:"Listening…",left:"{n}s left",m_again:"Measure again",use:"Insert into {p}",conf_high:"High confidence",conf_mid:"Medium confidence. Try again on a part with a clear kick drum.",conf_low:"Low confidence. Measure again closer to the speaker, or use tap tempo.",silent:"Barely any sound picked up. Move the phone closer to the speaker and turn it up.",mic_denied:"No microphone access. Allow it in the browser; if that doesn't help, open the link directly in Safari or Chrome.",mic_unavail:"The microphone isn't available in this view. Open the link directly in your phone's browser.",tap_note:"Based on your taps. Keep tapping to refine.",mic_hint:"Hold the phone close to the speaker, on a part where the kick drum is clear. Set the turntable pitch to 0 and the right speed (33 or 45), otherwise the reading shifts too.",show_h:"What goes on the label",f_color:"Print color",c_black:"Black only",c_red:"Black and red",f_enmode:"Energy display",en_bar:"Bar",en_num:"Number",preview_h:"Preview",size:"62 × {h} mm",print_a4:"Print on A4",print_label:"Label printer 62 mm",add_queue:"Add to A4 sheet",a4_h:"A4 sheet",queue_empty:"The list is empty. Add labels from the preview.",print_all:"Print whole list on A4",clear:"Clear list",a4_hint:"In the print dialog choose actual size (100%), not \"fit to page\".",remove:"Remove",lib_h:"Record library",new_rec:"New record",search:"Search…",untitled:"Untitled",n_tracks:"{n} tracks",now_open:"Open now",add_a4:"Add to A4 sheet",del_rec:"Delete record",del_confirm:"Delete \"{n}\" from the library?",added_a4:"Added to the A4 sheet",lib_hint:"Every change is saved to the library automatically. Tap a record to open and edit it.",backup_h:"Backup",export:"Export backup",import:"Import backup",backup_hint:"The backup is a file with all records and the A4 list. Save it to iCloud Drive or send it to yourself now and then. Importing never deletes existing records.",import_done:"Backup loaded: {a} records added, {u} updated.",import_bad:"This file doesn't look like a backup from this app.",mic_denied_app:"No microphone access. Allow it in the iPhone Settings under this app, then try again.",scan:"Photograph the track list",scan_hint:"Photograph the back of the sleeve or the record label. The text is read on the device itself, without internet, and you can fix everything before adding it.",scan_camera:"Take a photo",scan_library:"Choose from Photos",cancel:"Cancel",scan_wait:"Reading the photo…",scan_title:"Tracks found",scan_none:"No tracks were found in the photo. Try again from closer up, in good light and straight on.",scan_replace:"Replace the list",scan_append:"Add to the list",scan_sel:"Selected: {n}",paste:"Paste a list",paste_title:"Paste a list",paste_ph:"Paste the track list here, from Beatport, Traxsource, Discogs, deejay.de or your purchase email",paste_hint:"Copy the track list from the shop you bought the record in, paste it, and fix whatever needs fixing. A BPM in the list is picked up automatically.",paste_do:"Read the list",f_note:"Note on the record",th_note:"Note",type_in:"Type them in",fill_from:"How to fill in the tracks",s_lib:"Library",s_rec:"Record",s_tracks:"Tracks",s_mic:"BPM",s_label:"Label",s_print:"Print",back:"Back",next:"Next",step_of:"Step {a} of {b}",view_flat:"The label",view_sleeve:"On the sleeve",view_disc:"On the record",mock_hint:"This is the label at its real size next to the sleeve and the record, before you print.",rec_found:"Record details found",scan_nothing:"Nothing was found in the photo.",made_with:"Made with {app}",cut_hint:"Cut along the dashed lines.",a4_fill:"An A4 sheet holds up to {per} labels at the current size. To save paper, go through a few records in the library, press +A4 on each, and print them together on one sheet.",a4_status:"In the list: {n} · Sheets: {pages} · Free on the last sheet: {free}. You can add more records before printing.",a4_full:"In the list: {n} · Sheets: {pages}, all full.",f_shape:"Label shape",shape_rect:"62 mm rectangle, for the sleeve",shape_round:"95 mm circle, for the record label",size_round:"{d} mm across",hole_hint:"The spindle hole in the middle is marked with a dashed circle. Punch it before sticking, or the label will not go over the spindle.",round_full:"The content does not fit the round label. Turn fields off (the QR or the energy bar, for example), shorten names, or switch back to the rectangle.",
+ fl:{label:"Label",cat:"Catalog number",year:"Year and country",style:"Style",vo:"Vinyl only",qr:"QR",time:"Length",bpm:"BPM",energy:"Energy",note:"Track note",rnote:"Record note"}},
+de:{dir:"ltr",name:"Deutsch",lang:"Sprache",app_title:"Vinyl-Etiketten",app_sub:"Ausfüllen, Felder wählen, drucken",rec_h:"Die Platte",f_title:"Titel",f_artist:"Künstler",f_label:"Label",f_cat:"Katalognummer",f_year:"Jahr und Land (falls bekannt)",f_style:"Stil",f_link:"Link zu deejay.de (für den QR-Code)",tracks_h:"Tracks",th_side:"Seite",th_artist:"Künstler",th_title:"Titel",th_time:"Länge",th_energy:"Energie",add_track:"Track hinzufügen",del_track:"Track löschen",tracks_hint:"BPM per Mikrofon messen (unten) oder von Hand eintragen. Energie 1–10 nach Gehör.",mic_h:"BPM per Mikrofon messen",m_track:"Track",m_dur:"Messdauer",dur:"{n} Sekunden",m_range:"Tempobereich",r_house:"100–150 (House, Techno)",r_down:"80–120 (Downtempo, Hip-Hop)",r_fast:"130–180 (Trance, Drum & Bass)",m_start:"Messung starten",tap:"Tap-Tempo",listening:"Hört zu…",left:"noch {n} s",m_again:"Erneut messen",use:"In {p} eintragen",conf_high:"Hohe Sicherheit",conf_mid:"Mittlere Sicherheit. Besser an einer Stelle mit klarer Bassdrum erneut messen.",conf_low:"Geringe Sicherheit. Näher am Lautsprecher erneut messen oder Tap-Tempo nutzen.",silent:"Kaum Signal. Handy näher an den Lautsprecher halten und lauter drehen.",mic_denied:"Kein Mikrofonzugriff. Zugriff im Browser erlauben; falls das nicht hilft, den Link direkt in Safari oder Chrome öffnen.",mic_unavail:"Das Mikrofon ist in dieser Ansicht nicht verfügbar. Öffne den Link direkt im Browser des Handys.",tap_note:"Nach deinen Taps. Weiter tippen für mehr Genauigkeit.",mic_hint:"Handy nah an den Lautsprecher, an einer Stelle mit klarer Bassdrum. Pitch am Plattenspieler auf 0 und richtige Geschwindigkeit (33 oder 45), sonst verschiebt sich auch die Messung.",show_h:"Was aufs Etikett kommt",f_color:"Druckfarbe",c_black:"Nur Schwarz",c_red:"Schwarz und Rot",f_enmode:"Energie-Anzeige",en_bar:"Balken",en_num:"Zahl",preview_h:"Vorschau",size:"62 × {h} mm",print_a4:"Auf A4 drucken",print_label:"Etikettendrucker 62 mm",add_queue:"Zum A4-Bogen hinzufügen",a4_h:"A4-Bogen",queue_empty:"Die Liste ist leer. Füge Etiketten aus der Vorschau hinzu.",print_all:"Ganze Liste auf A4 drucken",clear:"Liste leeren",a4_hint:"Im Druckdialog Originalgröße (100 %) wählen, nicht „An Seite anpassen“.",remove:"Entfernen",lib_h:"Plattensammlung",new_rec:"Neue Platte",search:"Suchen…",untitled:"Ohne Titel",n_tracks:"{n} Tracks",now_open:"Gerade geöffnet",add_a4:"Zum A4-Bogen hinzufügen",del_rec:"Platte löschen",del_confirm:"„{n}“ aus der Sammlung löschen?",added_a4:"Zum A4-Bogen hinzugefügt",lib_hint:"Jede Änderung wird automatisch gespeichert. Tippe auf eine Platte, um sie zu öffnen und zu bearbeiten.",backup_h:"Sicherung",export:"Sicherung exportieren",import:"Sicherung importieren",backup_hint:"Die Sicherung ist eine Datei mit allen Platten und der A4-Liste. Speichere sie ab und zu in iCloud Drive oder schick sie dir selbst. Beim Import wird nichts gelöscht.",import_done:"Sicherung geladen: {a} Platten hinzugefügt, {u} aktualisiert.",import_bad:"Diese Datei sieht nicht wie eine Sicherung dieser App aus.",mic_denied_app:"Kein Mikrofonzugriff. Erlaube ihn in den iPhone-Einstellungen bei dieser App und versuche es erneut.",scan:"Trackliste fotografieren",scan_hint:"Fotografiere die Rückseite der Hülle oder das Label. Der Text wird direkt auf dem Gerät gelesen, ohne Internet, und du kannst alles vor dem Übernehmen korrigieren.",scan_camera:"Foto aufnehmen",scan_library:"Aus Fotos wählen",cancel:"Abbrechen",scan_wait:"Foto wird gelesen…",scan_title:"Gefundene Tracks",scan_none:"Im Foto wurden keine Tracks gefunden. Versuche es näher, bei gutem Licht und frontal.",scan_replace:"Liste ersetzen",scan_append:"Zur Liste hinzufügen",scan_sel:"Ausgewählt: {n}",paste:"Liste einfügen",paste_title:"Liste einfügen",paste_ph:"Füge hier die Trackliste ein, aus Beatport, Traxsource, Discogs, deejay.de oder deiner Kaufbestätigung",paste_hint:"Kopiere die Trackliste aus dem Shop, in dem du die Platte gekauft hast, füge sie ein und korrigiere, was nötig ist. Ein BPM in der Liste wird automatisch übernommen.",paste_do:"Liste einlesen",f_note:"Notiz zur Platte",th_note:"Notiz",type_in:"Selbst eintippen",fill_from:"Wie die Tracks hineinkommen",s_lib:"Sammlung",s_rec:"Platte",s_tracks:"Tracks",s_mic:"BPM",s_label:"Etikett",s_print:"Drucken",back:"Zurück",next:"Weiter",step_of:"Schritt {a} von {b}",view_flat:"Das Etikett",view_sleeve:"Auf der Hülle",view_disc:"Auf der Platte",mock_hint:"So groß ist das Etikett wirklich im Verhältnis zu Hülle und Platte, noch vor dem Druck.",rec_found:"Gefundene Plattenangaben",scan_nothing:"Auf dem Foto wurde nichts gefunden.",made_with:"Erstellt mit {app}",cut_hint:"Entlang der gestrichelten Linien schneiden.",a4_fill:"Auf ein A4-Blatt passen bei dieser Größe bis zu {per} Etiketten. Um Papier zu sparen, gehe ein paar Platten in der Sammlung durch, drücke bei jeder +A4 und drucke alle zusammen auf ein Blatt.",a4_status:"In der Liste: {n} · Blätter: {pages} · Frei auf dem letzten Blatt: {free}. Vor dem Druck kannst du weitere Platten hinzufügen.",a4_full:"In der Liste: {n} · Blätter: {pages}, alle voll.",f_shape:"Etikettenform",shape_rect:"62-mm-Rechteck, für die Hülle",shape_round:"95-mm-Kreis, für das Plattenlabel",size_round:"{d} mm Durchmesser",hole_hint:"Das Mittelloch ist gestrichelt markiert. Vor dem Aufkleben ausstanzen, sonst passt das Etikett nicht über den Dorn.",round_full:"Der Inhalt passt nicht auf das runde Etikett. Schalte Felder ab (z. B. QR oder Energie), kürze Namen oder wechsle zum Rechteck.",
+ fl:{label:"Label",cat:"Katalognummer",year:"Jahr und Land",style:"Stil",vo:"Vinyl only",qr:"QR",time:"Länge",bpm:"BPM",energy:"Energie",note:"Track-Notiz",rnote:"Platten-Notiz"}},
+es:{dir:"ltr",name:"Español",lang:"Idioma",app_title:"Etiquetas para vinilos",app_sub:"Rellena, elige los campos e imprime",rec_h:"El disco",f_title:"Título",f_artist:"Artista",f_label:"Sello",f_cat:"Número de catálogo",f_year:"Año y país (si se conoce)",f_style:"Estilo",f_link:"Enlace a deejay.de (para el QR)",tracks_h:"Temas",th_side:"Cara",th_artist:"Artista",th_title:"Título",th_time:"Duración",th_energy:"Energía",add_track:"Añadir tema",del_track:"Borrar tema",tracks_hint:"Mide el BPM con el micrófono (abajo) o escríbelo a mano. Energía de 1 a 10 a oído.",mic_h:"Medir BPM con el micrófono",m_track:"Tema",m_dur:"Tiempo de escucha",dur:"{n} segundos",m_range:"Rango de tempo",r_house:"100–150 (house, techno)",r_down:"80–120 (downtempo, hip hop)",r_fast:"130–180 (trance, drum and bass)",m_start:"Empezar medición",tap:"Marcar el ritmo",listening:"Escuchando…",left:"quedan {n} s",m_again:"Medir otra vez",use:"Poner en {p}",conf_high:"Confianza alta",conf_mid:"Confianza media. Mejor medir otra vez en una parte con el bombo claro.",conf_low:"Confianza baja. Mide otra vez más cerca del altavoz o marca el ritmo.",silent:"Apenas se oye sonido. Acerca el móvil al altavoz y sube el volumen.",mic_denied:"Sin acceso al micrófono. Permite el acceso en el navegador; si no funciona, abre el enlace directamente en Safari o Chrome.",mic_unavail:"El micrófono no está disponible en esta vista. Abre el enlace directamente en el navegador del móvil.",tap_note:"Según tus toques. Sigue marcando para afinar.",mic_hint:"Pon el móvil cerca del altavoz, en una parte donde el bombo se oiga claro. Pitch del tocadiscos a 0 y velocidad correcta (33 o 45); si no, la medición también se desvía.",show_h:"Qué aparece en la etiqueta",f_color:"Color de impresión",c_black:"Solo negro",c_red:"Negro y rojo",f_enmode:"Mostrar energía",en_bar:"Barra",en_num:"Número",preview_h:"Vista previa",size:"62 × {h} mm",print_a4:"Imprimir en A4",print_label:"Impresora de etiquetas 62 mm",add_queue:"Añadir a la hoja A4",a4_h:"Hoja A4",queue_empty:"La lista está vacía. Añade etiquetas desde la vista previa.",print_all:"Imprimir toda la lista en A4",clear:"Vaciar la lista",a4_hint:"En el diálogo de impresión elige tamaño real (100 %), no «ajustar a la página».",remove:"Quitar",lib_h:"Biblioteca de discos",new_rec:"Disco nuevo",search:"Buscar…",untitled:"Sin título",n_tracks:"{n} temas",now_open:"Abierto ahora",add_a4:"Añadir a la hoja A4",del_rec:"Borrar disco",del_confirm:"¿Borrar «{n}» de la biblioteca?",added_a4:"Añadido a la hoja A4",lib_hint:"Cada cambio se guarda solo en la biblioteca. Toca un disco para abrirlo y editarlo.",backup_h:"Copia de seguridad",export:"Exportar copia",import:"Importar copia",backup_hint:"La copia es un archivo con todos los discos y la lista A4. Guárdala de vez en cuando en iCloud Drive o envíatela. Al importar no se borra nada.",import_done:"Copia cargada: {a} discos añadidos, {u} actualizados.",import_bad:"Este archivo no parece una copia de esta app.",mic_denied_app:"Sin acceso al micrófono. Permítelo en los Ajustes del iPhone, en esta app, y vuelve a intentarlo.",scan:"Fotografiar la lista de temas",scan_hint:"Fotografía la parte de atrás de la funda o la etiqueta del disco. El texto se lee en el propio dispositivo, sin internet, y puedes corregirlo todo antes de añadirlo.",scan_camera:"Hacer foto",scan_library:"Elegir de Fotos",cancel:"Cancelar",scan_wait:"Leyendo la foto…",scan_title:"Temas encontrados",scan_none:"No se encontraron temas en la foto. Prueba de nuevo más cerca, con buena luz y de frente.",scan_replace:"Reemplazar la lista",scan_append:"Añadir a la lista",scan_sel:"Seleccionados: {n}",paste:"Pegar una lista",paste_title:"Pegar una lista",paste_ph:"Pega aquí la lista de temas, de Beatport, Traxsource, Discogs, deejay.de o del correo de compra",paste_hint:"Copia la lista de temas de la tienda donde compraste el disco, pégala y corrige lo que haga falta. Si la lista trae BPM, se rellena solo.",paste_do:"Leer la lista",f_note:"Nota sobre el disco",th_note:"Nota",type_in:"Escribirlos a mano",fill_from:"Cómo rellenar los temas",s_lib:"Biblioteca",s_rec:"Disco",s_tracks:"Temas",s_mic:"BPM",s_label:"Etiqueta",s_print:"Imprimir",back:"Atrás",next:"Siguiente",step_of:"Paso {a} de {b}",view_flat:"La etiqueta",view_sleeve:"En la funda",view_disc:"En el disco",mock_hint:"Así es la etiqueta a tamaño real junto a la funda y al disco, antes de imprimir.",rec_found:"Datos del disco encontrados",scan_nothing:"No se encontró nada en la foto.",made_with:"Creado con {app}",cut_hint:"Corta por las líneas discontinuas.",a4_fill:"En una hoja A4 caben hasta {per} etiquetas con el tamaño actual. Para ahorrar papel, recorre varios discos de la biblioteca, pulsa +A4 en cada uno e imprímelos juntos en una sola hoja.",a4_status:"En la lista: {n} · Hojas: {pages} · Libres en la última hoja: {free}. Puedes añadir más discos antes de imprimir.",a4_full:"En la lista: {n} · Hojas: {pages}, todas completas.",f_shape:"Forma de la etiqueta",shape_rect:"Rectángulo de 62 mm, para la funda",shape_round:"Círculo de 95 mm, para la etiqueta del disco",size_round:"{d} mm de diámetro",hole_hint:"El agujero central está marcado con una línea discontinua. Perfóralo antes de pegar o la etiqueta no entrará en el eje.",round_full:"El contenido no cabe en la etiqueta redonda. Desactiva campos (el QR o la energía, por ejemplo), acorta nombres o vuelve al rectángulo.",
+ fl:{label:"Sello",cat:"Nº de catálogo",year:"Año y país",style:"Estilo",vo:"Vinyl only",qr:"QR",time:"Duración",bpm:"BPM",energy:"Energía",note:"Nota del tema",rnote:"Nota del disco"}},
+fr:{dir:"ltr",name:"Français",lang:"Langue",app_title:"Étiquettes pour vinyles",app_sub:"Remplir, choisir les champs, imprimer",rec_h:"Le disque",f_title:"Titre",f_artist:"Artiste",f_label:"Label",f_cat:"Référence catalogue",f_year:"Année et pays (si connus)",f_style:"Style",f_link:"Lien deejay.de (pour le QR)",tracks_h:"Morceaux",th_side:"Face",th_artist:"Artiste",th_title:"Titre",th_time:"Durée",th_energy:"Énergie",add_track:"Ajouter un morceau",del_track:"Supprimer le morceau",tracks_hint:"Mesurez le BPM au micro (ci-dessous) ou saisissez-le à la main. Énergie de 1 à 10 à l'oreille.",mic_h:"Mesurer le BPM au micro",m_track:"Morceau",m_dur:"Durée d'écoute",dur:"{n} secondes",m_range:"Plage de tempo",r_house:"100–150 (house, techno)",r_down:"80–120 (downtempo, hip-hop)",r_fast:"130–180 (trance, drum and bass)",m_start:"Lancer la mesure",tap:"Taper le tempo",listening:"Écoute…",left:"encore {n} s",m_again:"Mesurer à nouveau",use:"Insérer dans {p}",conf_high:"Fiabilité élevée",conf_mid:"Fiabilité moyenne. Mieux vaut remesurer sur un passage où la grosse caisse est nette.",conf_low:"Fiabilité faible. Remesurez plus près de l'enceinte ou tapez le tempo.",silent:"Presque aucun son capté. Approchez le téléphone de l'enceinte et montez le volume.",mic_denied:"Pas d'accès au micro. Autorisez-le dans le navigateur ; sinon, ouvrez le lien directement dans Safari ou Chrome.",mic_unavail:"Le micro n'est pas disponible dans cet affichage. Ouvrez le lien directement dans le navigateur du téléphone.",tap_note:"D'après vos tapes. Continuez pour affiner.",mic_hint:"Placez le téléphone près de l'enceinte, sur un passage où la grosse caisse est nette. Pitch de la platine à 0 et bonne vitesse (33 ou 45), sinon la mesure sera faussée.",show_h:"Ce qui figure sur l'étiquette",f_color:"Couleur d'impression",c_black:"Noir seulement",c_red:"Noir et rouge",f_enmode:"Affichage de l'énergie",en_bar:"Barre",en_num:"Chiffre",preview_h:"Aperçu",size:"62 × {h} mm",print_a4:"Imprimer sur A4",print_label:"Imprimante d'étiquettes 62 mm",add_queue:"Ajouter à la feuille A4",a4_h:"Feuille A4",queue_empty:"La liste est vide. Ajoutez des étiquettes depuis l'aperçu.",print_all:"Imprimer toute la liste sur A4",clear:"Vider la liste",a4_hint:"Dans la fenêtre d'impression, choisissez la taille réelle (100 %), pas « ajuster à la page ».",remove:"Retirer",lib_h:"Bibliothèque de disques",new_rec:"Nouveau disque",search:"Rechercher…",untitled:"Sans titre",n_tracks:"{n} morceaux",now_open:"Ouvert",add_a4:"Ajouter à la feuille A4",del_rec:"Supprimer le disque",del_confirm:"Supprimer « {n} » de la bibliothèque ?",added_a4:"Ajouté à la feuille A4",lib_hint:"Chaque modification est enregistrée automatiquement. Touchez un disque pour l'ouvrir et le modifier.",backup_h:"Sauvegarde",export:"Exporter la sauvegarde",import:"Importer une sauvegarde",backup_hint:"La sauvegarde est un fichier avec tous les disques et la liste A4. Enregistrez-la de temps en temps dans iCloud Drive ou envoyez-la-vous. L'import ne supprime rien.",import_done:"Sauvegarde chargée : {a} disques ajoutés, {u} mis à jour.",import_bad:"Ce fichier ne ressemble pas à une sauvegarde de cette app.",mic_denied_app:"Pas d'accès au micro. Autorisez-le dans les Réglages de l'iPhone, pour cette app, puis réessayez.",scan:"Photographier la liste",scan_hint:"Photographiez le dos de la pochette ou l'étiquette du disque. Le texte est lu sur l'appareil, sans internet, et vous pouvez tout corriger avant de l'ajouter.",scan_camera:"Prendre une photo",scan_library:"Choisir dans Photos",cancel:"Annuler",scan_wait:"Lecture de la photo…",scan_title:"Morceaux trouvés",scan_none:"Aucun morceau trouvé sur la photo. Réessayez de plus près, avec une bonne lumière et bien en face.",scan_replace:"Remplacer la liste",scan_append:"Ajouter à la liste",scan_sel:"Sélectionnés : {n}",paste:"Coller une liste",paste_title:"Coller une liste",paste_ph:"Collez ici la liste des morceaux, depuis Beatport, Traxsource, Discogs, deejay.de ou votre e-mail d'achat",paste_hint:"Copiez la liste des morceaux depuis la boutique où vous avez acheté le disque, collez-la et corrigez ce qu'il faut. Un BPM présent dans la liste est repris automatiquement.",paste_do:"Lire la liste",f_note:"Note sur le disque",th_note:"Note",type_in:"Les saisir à la main",fill_from:"Comment remplir les morceaux",s_lib:"Bibliothèque",s_rec:"Disque",s_tracks:"Morceaux",s_mic:"BPM",s_label:"Étiquette",s_print:"Imprimer",back:"Retour",next:"Suivant",step_of:"Étape {a} sur {b}",view_flat:"L'étiquette",view_sleeve:"Sur la pochette",view_disc:"Sur le disque",mock_hint:"Voici l'étiquette à taille réelle par rapport à la pochette et au disque, avant l'impression.",rec_found:"Informations trouvées sur le disque",scan_nothing:"Rien n'a été trouvé sur la photo.",made_with:"Créé avec {app}",cut_hint:"Découpez le long des pointillés.",a4_fill:"Une feuille A4 contient jusqu'à {per} étiquettes à la taille actuelle. Pour économiser du papier, parcourez plusieurs disques de la bibliothèque, appuyez sur +A4 pour chacun, et imprimez-les ensemble sur une seule feuille.",a4_status:"Dans la liste : {n} · Feuilles : {pages} · Places libres sur la dernière feuille : {free}. Vous pouvez ajouter d'autres disques avant d'imprimer.",a4_full:"Dans la liste : {n} · Feuilles : {pages}, toutes pleines.",f_shape:"Forme de l'étiquette",shape_rect:"Rectangle 62 mm, pour la pochette",shape_round:"Cercle 95 mm, pour l'étiquette du disque",size_round:"{d} mm de diamètre",hole_hint:"Le trou central est marqué en pointillés. Percez-le avant de coller, sinon l'étiquette ne passera pas sur l'axe.",round_full:"Le contenu ne tient pas sur l'étiquette ronde. Désactivez des champs (le QR ou l'énergie), raccourcissez les noms, ou revenez au rectangle.",
+ fl:{label:"Label",cat:"Réf. catalogue",year:"Année et pays",style:"Style",vo:"Vinyl only",qr:"QR",time:"Durée",bpm:"BPM",energy:"Énergie",note:"Note du morceau",rnote:"Note du disque"}},
+ru:{dir:"ltr",name:"Русский",lang:"Язык",app_title:"Этикетки для пластинок",app_sub:"Заполните, выберите поля, печатайте",rec_h:"Пластинка",f_title:"Название",f_artist:"Исполнитель",f_label:"Лейбл",f_cat:"Каталожный номер",f_year:"Год и страна (если известно)",f_style:"Стиль",f_link:"Ссылка на deejay.de (для QR-кода)",tracks_h:"Треки",th_side:"Сторона",th_artist:"Исполнитель",th_title:"Название",th_time:"Длительность",th_energy:"Энергия",add_track:"Добавить трек",del_track:"Удалить трек",tracks_hint:"BPM можно измерить микрофоном (ниже) или ввести вручную. Энергия от 1 до 10 на слух.",mic_h:"Измерение BPM микрофоном",m_track:"Трек",m_dur:"Время прослушивания",dur:"{n} секунд",m_range:"Диапазон темпа",r_house:"100–150 (хаус, техно)",r_down:"80–120 (даунтемпо, хип-хоп)",r_fast:"130–180 (транс, драм-н-бейс)",m_start:"Начать измерение",tap:"Отбить темп",listening:"Слушаю…",left:"осталось {n} с",m_again:"Измерить снова",use:"Вставить в {p}",conf_high:"Высокая точность",conf_mid:"Средняя точность. Лучше измерить снова там, где бочка слышна чётко.",conf_low:"Низкая точность. Измерьте снова ближе к колонке или отбейте темп вручную.",silent:"Звука почти не слышно. Поднесите телефон ближе к колонке и прибавьте громкость.",mic_denied:"Нет доступа к микрофону. Разрешите его в браузере, а если не поможет — откройте ссылку прямо в Safari или Chrome.",mic_unavail:"Микрофон недоступен в этом окне. Откройте ссылку прямо в браузере телефона.",tap_note:"По вашим нажатиям. Продолжайте отбивать для точности.",mic_hint:"Держите телефон близко к колонке, на участке с чёткой бочкой. Питч на вертушке — 0, скорость правильная (33 или 45), иначе результат тоже сместится.",show_h:"Что попадёт на этикетку",f_color:"Цвет печати",c_black:"Только чёрный",c_red:"Чёрный и красный",f_enmode:"Показ энергии",en_bar:"Полоса",en_num:"Число",preview_h:"Просмотр",size:"62 × {h} мм",print_a4:"Печать на A4",print_label:"Принтер этикеток 62 мм",add_queue:"Добавить на лист A4",a4_h:"Лист A4",queue_empty:"Список пуст. Добавьте этикетки из просмотра.",print_all:"Напечатать весь список на A4",clear:"Очистить список",a4_hint:"В окне печати выберите реальный размер (100%), а не «по размеру страницы».",remove:"Убрать",lib_h:"Фонотека",new_rec:"Новая пластинка",search:"Поиск…",untitled:"Без названия",n_tracks:"{n} треков",now_open:"Открыта сейчас",add_a4:"Добавить на лист A4",del_rec:"Удалить пластинку",del_confirm:"Удалить «{n}» из фонотеки?",added_a4:"Добавлено на лист A4",lib_hint:"Каждое изменение сохраняется в фонотеку само. Нажмите на пластинку, чтобы открыть и изменить её.",backup_h:"Резервная копия",export:"Выгрузить копию",import:"Загрузить копию",backup_hint:"Копия — это файл со всеми пластинками и списком A4. Время от времени сохраняйте его в iCloud Drive или отправляйте себе. Загрузка копии ничего не удаляет.",import_done:"Копия загружена: добавлено {a}, обновлено {u}.",import_bad:"Этот файл не похож на копию из этого приложения.",mic_denied_app:"Нет доступа к микрофону. Разрешите его в настройках iPhone для этого приложения и попробуйте снова.",scan:"Сфотографировать список треков",scan_hint:"Сфотографируйте оборот конверта или этикетку пластинки. Текст распознаётся прямо на устройстве, без интернета, и всё можно поправить перед добавлением.",scan_camera:"Сделать фото",scan_library:"Выбрать из фото",cancel:"Отмена",scan_wait:"Читаю фото…",scan_title:"Найденные треки",scan_none:"На фото не найдено треков. Снимите ближе, при хорошем свете и прямо.",scan_replace:"Заменить список",scan_append:"Добавить к списку",scan_sel:"Выбрано: {n}",paste:"Вставить список",paste_title:"Вставка списка",paste_ph:"Вставьте сюда список треков из Beatport, Traxsource, Discogs, deejay.de или из письма о покупке",paste_hint:"Скопируйте список треков в магазине, где купили пластинку, вставьте его и поправьте что нужно. BPM из списка подставляется сам.",paste_do:"Разобрать список",f_note:"Заметка о пластинке",th_note:"Заметка",type_in:"Ввести вручную",fill_from:"Как заполнить треки",s_lib:"Фонотека",s_rec:"Пластинка",s_tracks:"Треки",s_mic:"BPM",s_label:"Этикетка",s_print:"Печать",back:"Назад",next:"Далее",step_of:"Шаг {a} из {b}",view_flat:"Этикетка",view_sleeve:"На конверте",view_disc:"На пластинке",mock_hint:"Так этикетка выглядит в реальном размере рядом с конвертом и пластинкой, ещё до печати.",rec_found:"Найденные данные пластинки",scan_nothing:"На фото ничего не найдено.",made_with:"Сделано в {app}",cut_hint:"Режьте по пунктирным линиям.",a4_fill:"На лист A4 при текущем размере помещается до {per} этикеток. Чтобы экономить бумагу, пройдитесь по нескольким пластинкам в фонотеке, нажмите +A4 на каждой и напечатайте их вместе на одном листе.",a4_status:"В списке: {n} · Листов: {pages} · Свободно на последнем листе: {free}. Перед печатью можно добавить ещё пластинки.",a4_full:"В списке: {n} · Листов: {pages}, все заполнены.",f_shape:"Форма этикетки",shape_rect:"Прямоугольник 62 мм, для конверта",shape_round:"Круг 95 мм, для этикетки пластинки",size_round:"{d} мм в диаметре",hole_hint:"Центральное отверстие отмечено пунктиром. Пробейте его перед наклейкой, иначе этикетка не сядет на штырь.",round_full:"Содержимое не помещается на круглую этикетку. Отключите поля (например, QR или энергию), сократите названия или вернитесь к прямоугольной.",
+ fl:{label:"Лейбл",cat:"Каталожный номер",year:"Год и страна",style:"Стиль",vo:"Vinyl only",qr:"QR",time:"Длительность",bpm:"BPM",energy:"Энергия",note:"Заметка трека",rnote:"Заметка пластинки"}},
+ja:{dir:"ltr",name:"日本語",lang:"言語",app_title:"レコード用ラベル",app_sub:"入力して、表示項目を選んで、印刷",rec_h:"レコード",f_title:"タイトル",f_artist:"アーティスト",f_label:"レーベル",f_cat:"カタログ番号",f_year:"年と国（わかる場合）",f_style:"スタイル",f_link:"deejay.de のリンク（QRコード用）",tracks_h:"トラック",th_side:"面",th_artist:"アーティスト",th_title:"曲名",th_time:"長さ",th_energy:"エナジー",add_track:"トラックを追加",del_track:"トラックを削除",tracks_hint:"BPMはマイクで測定（下）するか手入力。エナジーは耳で1〜10。",mic_h:"マイクでBPMを測定",m_track:"トラック",m_dur:"測定時間",dur:"{n}秒",m_range:"テンポ範囲",r_house:"100–150（ハウス、テクノ）",r_down:"80–120（ダウンテンポ、ヒップホップ）",r_fast:"130–180（トランス、ドラムンベース）",m_start:"測定開始",tap:"タップテンポ",listening:"測定中…",left:"残り{n}秒",m_again:"もう一度測定",use:"{p} に入力",conf_high:"信頼度：高",conf_mid:"信頼度：中。キックがはっきり聞こえる部分でもう一度測定してください。",conf_low:"信頼度：低。スピーカーに近づけて再測定するか、タップテンポを使ってください。",silent:"音がほとんど拾えていません。スマホをスピーカーに近づけ、音量を上げてください。",mic_denied:"マイクにアクセスできません。ブラウザで許可してください。それでもだめなら、リンクをSafariかChromeで直接開いてください。",mic_unavail:"この表示ではマイクが使えません。スマホのブラウザでリンクを直接開いてください。",tap_note:"タップから計算しました。続けるとより正確になります。",mic_hint:"キックがはっきり聞こえる部分で、スマホをスピーカーの近くに置いてください。ターンテーブルのピッチは0、回転数（33または45）も正しく。ずれていると測定もずれます。",show_h:"ラベルに表示する項目",f_color:"印刷色",c_black:"黒のみ",c_red:"黒と赤",f_enmode:"エナジーの表示",en_bar:"バー",en_num:"数字",preview_h:"プレビュー",size:"62 × {h} mm",print_a4:"A4に印刷",print_label:"ラベルプリンター 62mm",add_queue:"A4シートに追加",a4_h:"A4シート",queue_empty:"リストは空です。プレビューからラベルを追加してください。",print_all:"リスト全体をA4に印刷",clear:"リストを消去",a4_hint:"印刷画面では実際のサイズ（100%）を選び、「ページに合わせる」は選ばないでください。",remove:"削除",lib_h:"レコードライブラリ",new_rec:"新しいレコード",search:"検索…",untitled:"無題",n_tracks:"{n}トラック",now_open:"編集中",add_a4:"A4シートに追加",del_rec:"レコードを削除",del_confirm:"「{n}」をライブラリから削除しますか？",added_a4:"A4シートに追加しました",lib_hint:"変更はすべて自動でライブラリに保存されます。レコードをタップすると開いて編集できます。",backup_h:"バックアップ",export:"バックアップを書き出す",import:"バックアップを読み込む",backup_hint:"バックアップは全レコードとA4リストを含むファイルです。ときどきiCloud Driveに保存するか自分に送ってください。読み込んでも既存のレコードは消えません。",import_done:"読み込み完了：{a}件追加、{u}件更新。",import_bad:"このファイルはこのアプリのバックアップではないようです。",mic_denied_app:"マイクにアクセスできません。iPhoneの設定でこのアプリのマイクを許可してから、もう一度お試しください。",scan:"トラックリストを撮影",scan_hint:"ジャケットの裏面かレコードのラベルを撮影してください。文字は端末内で読み取られ、インターネットは使いません。追加する前に修正できます。",scan_camera:"写真を撮る",scan_library:"写真から選ぶ",cancel:"キャンセル",scan_wait:"写真を読み取っています…",scan_title:"見つかったトラック",scan_none:"写真からトラックを読み取れませんでした。明るい場所で、正面から近づいて撮り直してください。",scan_replace:"リストを置き換える",scan_append:"リストに追加する",scan_sel:"選択中：{n}",paste:"リストを貼り付け",paste_title:"リストを貼り付け",paste_ph:"Beatport、Traxsource、Discogs、deejay.de、購入メールなどからトラックリストをここに貼り付けてください",paste_hint:"レコードを買ったショップのトラックリストをコピーして貼り付け、必要なところを直してください。リストにBPMがあれば自動で入ります。",paste_do:"リストを読み取る",f_note:"レコードのメモ",th_note:"メモ",type_in:"手で入力",fill_from:"トラックの入力方法",s_lib:"ライブラリ",s_rec:"レコード",s_tracks:"トラック",s_mic:"BPM",s_label:"ラベル",s_print:"印刷",back:"戻る",next:"次へ",step_of:"ステップ {a}／{b}",view_flat:"ラベル",view_sleeve:"ジャケットに貼ると",view_disc:"レコードに貼ると",mock_hint:"印刷する前に、ジャケットやレコードと比べた実寸のラベルを確認できます。",rec_found:"見つかったレコード情報",scan_nothing:"写真から何も読み取れませんでした。",made_with:"{app} で作成",cut_hint:"点線に沿って切り取ってください。",a4_fill:"現在のサイズなら、A4用紙1枚に最大{per}枚のラベルが入ります。紙を節約するには、ライブラリでレコードをいくつか開いて+A4を押し、まとめて1枚に印刷してください。",a4_status:"リスト：{n} · ページ：{pages} · 最後のページの空き：{free}。印刷前にレコードを追加できます。",a4_full:"リスト：{n} · ページ：{pages}（すべて満杯）。",f_shape:"ラベルの形",shape_rect:"62mm の長方形（ジャケット用）",shape_round:"95mm の円（レコードのラベル用）",size_round:"直径 {d} mm",hole_hint:"中央のセンターホールは点線で示しています。貼る前に開けてください。開けないとスピンドルに入りません。",round_full:"内容が丸いラベルに収まりません。項目（QRやエナジーなど）をオフにするか、名前を短くするか、長方形に戻してください。",
+ fl:{label:"レーベル",cat:"カタログ番号",year:"年と国",style:"スタイル",vo:"Vinyl only",qr:"QR",time:"長さ",bpm:"BPM",energy:"エナジー",note:"トラックのメモ",rnote:"レコードのメモ"}}
+};
+
+function detectBPM(x, sr, opt){
+  opt=opt||{};const lo=opt.lo||100, hi=opt.hi||150, hop=opt.hop||128;
+  const n=Math.floor(x.length/hop);const env=new Float32Array(n);
+  const win=opt.win||1024;const cs=new Float64Array(x.length+1);for(let i=0;i<x.length;i++)cs[i+1]=cs[i]+x[i]*x[i];
+  let prev=0;
+  for(let i=0;i<n;i++){const a=i*hop,b=Math.min(x.length,a+win);
+    const l=Math.log(1e-9+(cs[b]-cs[a])/(b-a));env[i]=i?Math.max(0,l-prev):0;prev=l;}
+  const fr=sr/hop, W=Math.round(fr*0.5);const on=new Float32Array(n);let acc=0;
+  for(let i=0;i<n;i++){acc+=env[i];if(i>=W)acc-=env[i-W];const m=acc/Math.min(i+1,W);on[i]=Math.max(0,env[i]-m);}
+  let mean=0;for(let i=0;i<n;i++)mean+=on[i];mean/=n;for(let i=0;i<n;i++)on[i]-=mean;
+  const K=8, maxLag=Math.min(n-1,Math.ceil(K*60*fr/lo)+2);const ac=new Float32Array(maxLag+1);
+  for(let L=0;L<=maxLag;L++){let s=0;for(let i=0;i+L<n;i++)s+=on[i]*on[i+L];ac[L]=s/(n-L);}
+  const at=t=>{const i=Math.floor(t),f=t-i;return i+1<=maxLag?ac[i]*(1-f)+ac[i+1]*f:0};
+  let best=0,bs=-1e9;const scores=[];
+  for(let b=lo;b<=hi+1e-9;b+=0.05){const p=60*fr/b;let s=0;for(let k=1;k<=K;k++)s+=at(k*p);scores.push(s);if(s>bs){bs=s;best=b;}}
+  const sorted=scores.slice().sort((a,b)=>a-b);const med=sorted[sorted.length>>1],mx=sorted[sorted.length-1],mn=sorted[0];
+  const conf=(bs-med)/((mx-mn)||1);
+  return {bpm:Math.round(best*10)/10,confidence:conf};
+}
+
+
+const FIELDS=["label","cat","year","style","rnote","vo","qr","time","bpm","energy","note"];
+const DEF_REC={title:"Pioneer Series Vol. II",artist:"Various",label:"Micro Orbit Records",cat:"MCRBP002",year:"2024 · Italy",style:"Minimal · Microhouse",link:"https://www.deejay.de/Various_Pioneer_Series_VolII_MCRBP002_Vinyl__1056046",
+tracks:[{p:"A1",a:"Mtps",n:"Moonrise",t:"7:29",b:"125",e:""},{p:"A2",a:"Michaelis",n:"Wax Off",t:"7:26",b:"130",e:""},{p:"B1",a:"Mihai Pol",n:"Zelot",t:"7:48",b:"128",e:""},{p:"B2",a:"Fedo",n:"Anantkar Kaur",t:"7:37",b:"126",e:""}]};
+const DEF_SET={shape:"rect",on:{label:true,cat:true,year:true,style:true,rnote:true,vo:true,qr:true,time:true,bpm:true,energy:true,note:true},color:"red",enmode:"bar"};
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+const clone=o=>JSON.parse(JSON.stringify(o));
+let set=load("vl_set",clone(DEF_SET)),queue=load("vl_queue",[]);
+set.on=Object.assign({},DEF_SET.on,set.on); // fields added in a later version default to on
+const REC_KEYS=["title","artist","label","cat","year","style","link","note"];
+const newId=()=>(window.crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
+const blankRec=()=>({id:newId(),updated:Date.now(),title:"",artist:"",label:"",cat:"",year:"",style:"",link:"",tracks:["A1","A2","B1","B2"].map(p=>({p,a:"",n:"",t:"",b:"",e:"",note:""}))});
+const isBlank=r=>!REC_KEYS.some(k=>r[k])&&r.tracks.every(tr=>!tr.a&&!tr.n&&!tr.t&&!tr.b&&!tr.e);
+const sameRec=(a,b)=>REC_KEYS.every(k=>(a[k]||"")===(b[k]||""))&&JSON.stringify(a.tracks)===JSON.stringify(b.tracks);
+let lib=load("vl_lib",null);
+if(!Array.isArray(lib)){
+  // first run with the library: move the open record and the A4 list into it
+  lib=[];
+  const add=r=>{if(r&&Array.isArray(r.tracks)&&!lib.some(x=>sameRec(x,r)))lib.push(Object.assign(clone(r),{id:newId(),updated:Date.now()-lib.length}))};
+  add(load("vl_rec2",clone(DEF_REC)));queue.forEach(add);
+  save("vl_lib",lib);
+}
+let rec=lib.find(r=>r.id===load("vl_cur",null))||lib[0];
+if(!rec){rec=blankRec();lib.push(rec)}
+let recSnap=JSON.stringify(rec);
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+let lang=load("vl_lang",null);
+if(!lang||!I18N[lang]){const nav=(navigator.languages||[navigator.language||"en"]).map(l=>String(l).slice(0,2).toLowerCase());lang=nav.find(l=>I18N[l])||(nav.includes("iw")?"he":"en")}
+const t=(k,v)=>{let s=I18N[lang][k]??I18N.en[k]??k;if(v)for(const x in v)s=s.replace("{"+x+"}",v[x]);return s};
+$("langSel").innerHTML=Object.keys(I18N).map(k=>`<option value="${k}">${I18N[k].name}</option>`).join("");
+function applyLang(){
+  document.documentElement.lang=lang;document.documentElement.dir=I18N[lang].dir;$("langSel").value=lang;
+  document.title=t("app_title");$("libSearch").placeholder=t("search");
+  document.querySelectorAll("[data-i]").forEach(el=>el.textContent=t(el.dataset.i));
+  $("scanBtn").disabled||scanReset();[...$("mDur").options].forEach(o=>o.textContent=t("dur",{n:o.value}));
+  $("toggles").innerHTML=FIELDS.map(k=>`<label><input type="checkbox" data-k="${k}" ${set.on[k]?"checked":""}>${esc(I18N[lang].fl[k])}</label>`).join("");
+  drawTracks();drawQueue();changed();if(typeof drawStep==="function")drawStep();
+  if($("mResult").style.display==="block"&&lastResult)showResult(...lastResult);
+}
+$("langSel").onchange=()=>{lang=$("langSel").value;save("vl_lang",lang);applyLang()};
+
+function fillForm(){REC_KEYS.forEach(k=>$(k).value=rec[k]||"")}
+REC_KEYS.forEach(k=>$(k).addEventListener("input",()=>{rec[k]=$(k).value;changed()}));
+fillForm();
+$("toggles").addEventListener("change",e=>{if(e.target.dataset.k){set.on[e.target.dataset.k]=e.target.checked;changed()}});
+$("shape").value=set.shape||"rect";$("color").value=set.color;$("enmode").value=set.enmode;
+$("shape").onchange=()=>{set.shape=$("shape").value;changed()};
+$("color").onchange=()=>{set.color=$("color").value;changed()};
+$("enmode").onchange=()=>{set.enmode=$("enmode").value;changed()};
+
+function drawTracks(){
+  $("tbody").innerHTML=rec.tracks.map((tr,i)=>{
+    tr.note=tr.note??"";const opts='<option value=""></option>'+Array.from({length:10},(_,k)=>`<option ${String(k+1)===String(tr.e)?"selected":""}>${k+1}</option>`).join("");
+    return `<tr>
+  <td><input type="text" dir="ltr" data-i2="${i}" data-f="p" value="${esc(tr.p)}"></td>
+  <td><input type="text" dir="auto" data-i2="${i}" data-f="a" value="${esc(tr.a)}"></td>
+  <td><input type="text" dir="auto" data-i2="${i}" data-f="n" value="${esc(tr.n)}"></td>
+  <td><input type="text" dir="ltr" data-i2="${i}" data-f="t" value="${esc(tr.t)}"></td>
+  <td><input type="text" dir="ltr" inputmode="decimal" data-i2="${i}" data-f="b" value="${esc(tr.b)}"></td>
+  <td><select data-i2="${i}" data-f="e">${opts}</select></td>
+  <td><input type="text" dir="auto" data-i2="${i}" data-f="note" value="${esc(tr.note)}"></td>
+  <td><button class="x" aria-label="${esc(t("del_track"))}" data-del="${i}">✕</button></td></tr>`}).join("");
+  fillTrackSelect();
+}
+$("tbody").addEventListener("input",e=>{const i=e.target.dataset.i2,f=e.target.dataset.f;if(i!==undefined&&e.target.tagName==="INPUT"){rec.tracks[i][f]=e.target.value;changed();if(f==="p"||f==="n")fillTrackSelect()}});
+$("tbody").addEventListener("change",e=>{if(e.target.tagName==="SELECT"){rec.tracks[e.target.dataset.i2].e=e.target.value;changed()}});
+$("tbody").addEventListener("click",e=>{const d=e.target.dataset.del;if(d!==undefined){rec.tracks.splice(+d,1);drawTracks();changed()}});
+$("addTrack").onclick=()=>{const last=rec.tracks[rec.tracks.length-1];let p="A1";if(last){const m=last.p.match(/^([A-Z])(\d+)$/i);if(m)p=m[1].toUpperCase()+(+m[2]+1)}rec.tracks.push({p,a:"",n:"",t:"",b:"",e:"",note:""});drawTracks();changed()};
+
+const ROUND_MM=95;
+// The label is built in three parts, so the round version can put the record's
+// details above the spindle hole and the tracks below it.
+function labelHTML(r,s){
+  const on=s.on,round=s.shape==="round";
+  let head=`<div class="top"><div style="min-width:0"><div class="t">${esc(r.title)}</div>`;
+  const l=[r.artist,on.label?r.label:""].filter(Boolean).join(" – ");if(l)head+=`<div class="m">${esc(l)}</div>`;
+  const m=[on.cat?r.cat:"",on.year?r.year:""].filter(Boolean).join("  ");if(m)head+=`<div class="m">${esc(m)}</div>`;
+  head+=`</div>${on.vo?'<div class="vo">Vinyl only</div>':""}</div>`;
+  if(on.style&&r.style)head+=`<div class="m" style="margin-top:0.6mm">${esc(r.style)}</div>`;
+  if(on.rnote&&r.note)head+=`<div class="m note" style="margin-top:0.6mm">${esc(r.note)}</div>`;
+  head+=`<div class="rule"></div>`;
+  let body="";
+  r.tracks.forEach((tr,i)=>{
+    const next=r.tracks[i+1],sideEnd=next&&next.p&&tr.p&&next.p[0].toUpperCase()!==tr.p[0].toUpperCase();
+    body+=`<div class="tr ${sideEnd?"sideend":""}"><div class="l1"><span class="pos">${esc(tr.p)}</span><span class="nm">${tr.a?`<b>${esc(tr.a)}</b> – `:""}${esc(tr.n)}</span>${on.time&&tr.t?`<span>${esc(tr.t)}</span>`:""}</div>`;
+    let d="";
+    if(on.bpm)d+=`<span class="bpm">BPM ${tr.b?`<b>${esc(tr.b)}</b>`:'<span class="blank"></span>'}</span>`;
+    if(on.energy){const e=+tr.e||0;
+      if(s.enmode==="num")d+=`<span class="ennum">E ${e?`<b>${e}</b>/10`:'<span class="blank"></span>'}</span>`;
+      else d+=`<span class="en">${Array.from({length:10},(_,k)=>`<i class="${k<e?"on":""}"></i>`).join("")}</span>`;}
+    if(on.note&&tr.note)d+=`<span class="note">${esc(tr.note)}</span>`;
+    if(d)body+=`<div class="l2">${d}</div>`;
+    body+=`</div>`;
+  });
+  const foot=(on.qr&&r.link)?`<div class="foot"><div class="m">deejay.de</div><div class="qr" data-qr="${esc(r.link)}"></div></div>`:"";
+  const cls=`lbl ${round?"round":""} ${s.color==="red"?"red":""}`;
+  if(!round)return `<div class="${cls}">${head}${body}${foot}</div>`;
+  // top half, the hole, bottom half: nothing is printed where the spindle goes
+  return `<div class="${cls}"><div class="hole"></div>
+    <div class="half up">${head}</div><div class="holegap"></div><div class="half down">${body}${foot}</div></div>`;
+}
+function fillQR(root){root.querySelectorAll("[data-qr]").forEach(el=>{el.innerHTML="";if(window.QRCode){try{new QRCode(el,{text:el.dataset.qr,width:180,height:180,correctLevel:QRCode.CorrectLevel.L})}catch(e){}}})}
+const PX_MM=96/25.4;
+// the label may be off screen (mock views), so measure it on a hidden copy
+function labelHeightPx(){
+  const tmp=document.createElement("div");
+  tmp.style.cssText="position:absolute;visibility:hidden;left:-9999px;top:0";
+  tmp.innerHTML=labelHTML(rec,set);document.body.appendChild(tmp);
+  const h=tmp.firstElementChild.offsetHeight;tmp.remove();return h;
+}
+function changed(){
+  const snap=JSON.stringify(rec);
+  if(snap!==recSnap){rec.updated=Date.now();recSnap=JSON.stringify(rec)}
+  save("vl_lib",lib);save("vl_cur",rec.id);save("vl_set",set);
+  drawLib();
+  $("preview").innerHTML=labelHTML(rec,set);fillQR($("preview"));
+  const h=labelHeightPx();
+  $("scaleBox").style.height=(h*1.35)+"px";
+  $("size").textContent=set.shape==="round"?t("size_round",{d:ROUND_MM}):t("size",{h:Math.round(h/PX_MM)});
+  $("holeHint").style.display=set.shape==="round"?"":"none";
+  const half=$("preview").querySelector(".half.down");
+  const tight=set.shape==="round"&&half&&half.scrollHeight>half.clientHeight+2;
+  $("roundFull").style.display=tight?"":"none";
+  if(tight)$("roundFull").textContent=t("round_full");
+  if(typeof drawMock==="function")drawMock();
+  if(typeof sheetInfo==="function")drawQueue();
+}
+function sheetInfo(){
+  const round=set.shape==="round";
+  const H=round?ROUND_MM:Math.ceil(labelHeightPx()/PX_MM),G=6,PAGE=printPageHeight();
+  const cols=round?2:3,rows=Math.max(1,Math.floor((PAGE-16+G)/(H+G))),per=cols*rows;
+  const n=queue.length,pages=Math.max(1,Math.ceil(n/per)),used=n%per;
+  return {per,n,pages,free:n?(used?per-used:0):per};
+}
+function drawQueue(){
+  $("queue").innerHTML=queue.length?queue.map((q,i)=>`<li><span dir="auto">${esc(q.title)}${q.cat?" ("+esc(q.cat)+")":""}</span><button class="x" data-q="${i}" aria-label="${esc(t("remove"))}">✕</button></li>`).join(""):`<li><span style="color:var(--muted)">${esc(t("queue_empty"))}</span></li>`;
+  save("vl_queue",queue);
+  const si=sheetInfo();
+  $("a4Status").textContent=!si.n?t("a4_fill",{per:si.per})
+    :si.free?t("a4_status",{n:si.n,pages:si.pages,free:si.free})
+    :t("a4_full",{n:si.n,pages:si.pages});
+}
+$("queue").addEventListener("click",e=>{const q=e.target.dataset.q;if(q!==undefined){queue.splice(+q,1);drawQueue()}});
+$("addQueue").onclick=()=>{queue.push(clone(rec));drawQueue()};
+
+function drawLib(){
+  const q=$("libSearch").value.trim().toLowerCase();
+  $("libSearch").style.display=lib.length>5?"":"none";
+  const list=lib.slice().sort((a,b)=>(b.updated||0)-(a.updated||0))
+    .filter(r=>!q||[r.title,r.artist,r.label,r.cat,...r.tracks.map(tr=>tr.a+" "+tr.n)].join(" ").toLowerCase().includes(q));
+  $("lib").innerHTML=list.map(r=>{
+    const meta=[r.artist,r.cat,t("n_tracks",{n:r.tracks.length})].filter(Boolean).join(" · ");
+    const cur=r.id===rec.id;
+    return `<li class="${cur?"cur":""}"><button class="open" data-open="${esc(r.id)}" ${cur?'aria-current="true"':""}><b dir="auto">${esc(r.title||t("untitled"))}</b><span class="meta" dir="auto">${cur?esc(t("now_open"))+" · ":""}${esc(meta)}</span></button><button class="x" dir="ltr" data-lq="${esc(r.id)}" aria-label="${esc(t("add_a4"))}" title="${esc(t("add_a4"))}">+A4</button><button class="x" data-ldel="${esc(r.id)}" aria-label="${esc(t("del_rec"))}">✕</button></li>`;
+  }).join("");
+}
+function openRec(r){
+  if(r!==rec&&isBlank(rec))lib=lib.filter(x=>x!==rec);
+  rec=r;recSnap=JSON.stringify(rec);
+  fillForm();$("mResult").style.display="none";lastResult=null;
+  drawTracks();changed();
+}
+$("lib").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  const find=id=>lib.find(r=>r.id===id);
+  if(b.dataset.open){const r=find(b.dataset.open);if(r&&r!==rec){openRec(r);window.scrollTo({top:0,behavior:"smooth"})}}
+  else if(b.dataset.lq){const r=find(b.dataset.lq);if(r){queue.push(clone(r));drawQueue();b.textContent="✓";setTimeout(()=>drawLib(),900)}}
+  else if(b.dataset.ldel){const r=find(b.dataset.ldel);if(!r||!confirm(t("del_confirm",{n:r.title||t("untitled")})))return;
+    lib=lib.filter(x=>x!==r);
+    if(r===rec){const next=lib.slice().sort((a,b)=>(b.updated||0)-(a.updated||0))[0];if(next)openRec(next);else{const n=blankRec();lib.push(n);openRec(n)}}
+    else changed();}
+});
+$("libSearch").addEventListener("input",drawLib);
+$("newRec").onclick=()=>{
+  if(isBlank(rec)){$("title").focus();return}
+  const n=blankRec();lib.push(n);openRec(n);window.scrollTo({top:0,behavior:"smooth"});$("title").focus();
+};
+
+$("exportB").onclick=()=>{
+  const day=new Date().toISOString().slice(0,10);
+  const name=`vinyl-labels-backup-${day}.json`;
+  const text=JSON.stringify({app:"vinyl-labels",version:1,exported:new Date().toISOString(),library:lib.filter(r=>!isBlank(r)),queue,settings:set},null,1);
+  const h=window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.nativeShare;
+  if(h){h.postMessage({name,text});return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:"application/json"}));a.download=name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+};
+$("importB").onclick=()=>$("importFile").click();
+$("importFile").onchange=async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  let d=null;try{d=JSON.parse(await f.text())}catch(_){}
+  if(!d||d.app!=="vinyl-labels"||!Array.isArray(d.library)){alert(t("import_bad"));return}
+  let added=0,upd=0;
+  d.library.forEach(r=>{
+    if(!r||typeof r!=="object"||!Array.isArray(r.tracks))return;
+    const clean={id:String(r.id||newId()),updated:+r.updated||Date.now(),tracks:r.tracks.map(tr=>({p:String(tr.p??""),a:String(tr.a??""),n:String(tr.n??""),t:String(tr.t??""),b:String(tr.b??""),e:String(tr.e??""),note:String(tr.note??"")}))};
+    REC_KEYS.forEach(k=>clean[k]=String(r[k]??""));
+    const i=lib.findIndex(x=>x.id===clean.id);
+    if(i<0){if(!lib.some(x=>sameRec(x,clean))){lib.push(clean);added++}}
+    else if(clean.updated>(lib[i].updated||0)&&!sameRec(lib[i],clean)){lib[i]=clean;upd++}
+  });
+  if(!queue.length&&Array.isArray(d.queue)){queue=d.queue.filter(r=>r&&Array.isArray(r.tracks));drawQueue()}
+  const cur=lib.find(x=>x.id===rec.id);
+  if(isBlank(rec)&&added){lib=lib.filter(x=>x!==rec);openRec(lib.slice().sort((a,b)=>(b.updated||0)-(a.updated||0))[0])}
+  else if(cur!==rec){rec=cur;openRec(cur)}
+  else changed();
+  alert(t("import_done",{a:added,u:upd}));
+};
+$("clearQ").onclick=()=>{queue=[];drawQueue()};
+
+$("printOne").onclick=()=>{
+  const p=$("print");p.innerHTML=`<div class="single">${labelHTML(rec,set)}</div>`;fillQR(p);
+  p.style.display="block";const h=set.shape==="round"?ROUND_MM:Math.ceil(p.firstElementChild.offsetHeight/PX_MM)+1;p.style.display="";
+  const w=set.shape==="round"?ROUND_MM:62;
+  $("pagesize").textContent=`@page{size:${w}mm ${h}mm;margin:0}`;
+  setTimeout(()=>window.print(),150);
+};
+// iOS prints the page through its own formatter, whose printable area is shorter
+// than a full A4 sheet; going over it would add a blank page after every sheet.
+const printPageHeight=()=>inApp()?250:297;
+function printSheet(list){
+  const p=$("print");
+  const tmp=document.createElement("div");tmp.style.cssText="position:absolute;visibility:hidden;left:-9999px";document.body.appendChild(tmp);
+  let maxH=0;list.forEach(q=>{tmp.innerHTML=labelHTML(q,set);maxH=Math.max(maxH,tmp.firstElementChild.offsetHeight/PX_MM)});tmp.remove();
+  const round=set.shape==="round";
+  const W=round?ROUND_MM:62,G=6,PAGE_H=printPageHeight(),H=round?ROUND_MM:Math.ceil(maxH),cols=round?2:3,rows=Math.max(1,Math.floor((PAGE_H-16+G)/(H+G))),per=cols*rows;
+  const ox=(210-(cols*W+(cols-1)*G))/2,oy=(PAGE_H-(rows*H+(rows-1)*G))/2;
+  let html="";
+  for(let s=0;s<list.length;s+=per){
+    html+=`<div class="sheet">`;
+    list.slice(s,s+per).forEach((q,i)=>{const c=i%cols,r=Math.floor(i/cols);html+=`<div class="cell ${round?"roundcell":""}" style="left:${ox+c*(W+G)}mm;top:${oy+r*(H+G)}mm;width:${W}mm;height:${H}mm">${labelHTML(q,set)}</div>`});
+    // short corner marks make the cut easier to line up than the dashed box alone
+    list.slice(s,s+per).forEach((q,i)=>{
+      const c=i%cols,r=Math.floor(i/cols),x=ox+c*(W+G),y=oy+r*(H+G),m=3;
+      [[x,y,"top","left"],[x+W,y,"top","right"],[x,y+H,"bottom","left"],[x+W,y+H,"bottom","right"]].forEach(([cx,cy,v,h])=>{
+        html+=`<div class="tick" style="left:${cx-(h==="right"?m:0)}mm;top:${cy}mm;width:${m}mm;height:0.2mm"></div>`;
+        html+=`<div class="tick" style="left:${cx}mm;top:${cy-(v==="bottom"?m:0)}mm;width:0.2mm;height:${m}mm"></div>`;
+      });
+    });
+    html+=`<div class="credit" style="bottom:${Math.max(3,oy/2-2)}mm">${esc(t("made_with",{app:t("app_title")}))} · ${esc(t("cut_hint"))}</div>`;
+    for(let c=0;c<cols;c++)[ox+c*(W+G),ox+c*(W+G)+W].forEach(x=>{html+=`<div class="tick" style="left:${x}mm;top:0;width:0.2mm;height:${oy-2}mm"></div><div class="tick" style="left:${x}mm;bottom:0;width:0.2mm;height:${oy-2}mm"></div>`});
+    for(let r=0;r<rows;r++)[oy+r*(H+G),oy+r*(H+G)+H].forEach(y=>{html+=`<div class="tick" style="top:${y}mm;left:0;height:0.2mm;width:${ox-2}mm"></div><div class="tick" style="top:${y}mm;right:0;height:0.2mm;width:${ox-2}mm"></div>`});
+    html+=`</div>`;
+  }
+  p.innerHTML=html;fillQR(p);
+  $("pagesize").textContent=`@page{size:A4;margin:0}@media print{.sheet{height:${PAGE_H}mm}}`;
+  setTimeout(()=>window.print(),200);
+}
+$("printA4").onclick=()=>printSheet(queue.length?queue:[clone(rec)]);
+$("printA4b").onclick=()=>printSheet([clone(rec)]);
+
+function fillTrackSelect(){const sel=$("mTrack"),cur=sel.value;sel.innerHTML=rec.tracks.map((tr,i)=>`<option value="${i}">${esc(tr.p)} ${esc(tr.n)}</option>`).join("");if(cur!==""&&+cur<rec.tracks.length)sel.value=cur;}
+const nativeScan=()=>window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.nativeScan;
+const inApp=()=>!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform());
+if(inApp()&&nativeScan()){$("scanBtn").style.display="";$("scanHint").style.display=""}
+$("scanBtn").onclick=()=>{
+  const h=nativeScan();
+  if(!h)return;
+  $("scanBtn").disabled=true;$("scanBtn").textContent=t("scan_wait");
+  h.postMessage({camera:t("scan_camera"),library:t("scan_library"),cancel:t("cancel")});
+};
+const scanReset=()=>{$("scanBtn").disabled=false;$("scanBtn").textContent=t("scan")};
+
+// Lines come from the iOS text recognizer, each with its place on the photo (y: 1 = top).
+function scanLines(items){
+  const rows=[];
+  items.slice().sort((a,b)=>(b.y-a.y)||(a.x-b.x)).forEach(it=>{
+    const r=rows[rows.length-1];
+    if(r&&Math.abs(r.y-it.y)<Math.max(0.012,it.h*0.6)){r.parts.push(it);r.y=(r.y+it.y)/2}
+    else rows.push({y:it.y,parts:[it]});
+  });
+  return rows.map(r=>r.parts.sort((a,b)=>a.x-b.x).map(p=>p.text).join(" ").replace(/\s+/g," ").trim());
+}
+// lines that a sleeve is full of, but that are never a track
+const SKIP=/(\brpm\b|℗|©|\(p\)|\(c\)|all rights|made in|manufact|distribut|www\.|http|@|record(ed|ing)? (at|by)|master(ed|ing)|cut (at|by)|mixed by|written by|produced by|composed|publish|licen|copyright|thanks|artwork|design|photo by|stereo|\bgmbh\b|\bltd\b|\binc\b|\bbmi\b|\bascap\b|\bgema\b|^side\b|^face\b|^seite\b|^disc\b|^lp\b|^ep\b|^tracklist)/i;
+const parseScan=items=>parseLines(scanLines(items));
+function parseLines(lines){
+  const out=[];
+  lines.forEach(line=>{
+    let s=line.replace(/[•·|]/g," ").replace(/\s+/g," ").trim();
+    if(s.length<3||SKIP.test(s))return;
+    if(!/[a-z\u0370-\u04ff\u0590-\u05ff]/i.test(s))return;
+    let p="";
+    let m=s.match(/^([A-Fa-f])\s?([1-9][0-9]?)\s*[.):\-\]]?\s+(.+)$/);
+    let fixed=false;
+    if(m){p=m[1].toUpperCase()+m[2];s=m[3];fixed=true}
+    else{m=s.match(/^([1-9][0-9]?)\s*[.):\-\]]\s+(.+)$/);if(m)s=m[2]}
+    let time="";
+    const mt=s.match(/\(?\b([0-9]{1,2}:[0-5][0-9])\b\)?/);
+    if(mt){time=mt[1];s=s.replace(mt[0],"").trim()}
+    // shop lists often carry the BPM, and sometimes the key, after the length
+    let bpm="";
+    const mb=s.match(/\b([0-9]{2,3}(?:\.[0-9])?)\s*bpm\b/i)||(time?s.match(/(?:^|\s)([0-9]{2,3})(?=\s*$)/):null);
+    if(mb&&+mb[1]>=60&&+mb[1]<=220){bpm=String(Math.round(+mb[1]));s=s.replace(mb[0],"").trim()}
+    s=s.replace(/\b([A-G][#b\u266d\u266f]?\s?(?:min|maj|minor|major))\b/i,"").trim();
+    s=s.replace(/^[\s.\-–—:]+|[\s.\-–—:]+$/g,"");
+    if(s.length<2)return;
+    const words=s.split(" ").length;
+    if(!p&&!time&&(words>8||s.length>60))return;
+    let a="",n=s;
+    const ms=s.split(/\s[–—\-]\s|\s\/\s/);
+    if(ms.length>1&&ms[0].length>1&&ms[1].length>1){a=ms[0].trim();n=ms.slice(1).join(" - ").trim()}
+    // a line that has none of the marks of a track (position, length, artist) is
+    // probably a header, so it is listed but not ticked
+    out.push({p,a,n,t:time,b:bpm,e:"",note:"",fixed,sure:!!(p||time||a||bpm)});
+  });
+  return renumber(pickTracks(out));
+}
+// A sleeve photo also carries credits, addresses and small print. When the photo does
+// contain real track lines — ones with a position (A1, B2) or a length (7:29) — keep only
+// those, so the rest of the sleeve never reaches the list.
+function pickTracks(out){
+  const strong=out.filter(tr=>tr.fixed||tr.t);
+  if(strong.length>=2)return strong.slice(0,40);
+  const sure=out.filter(tr=>tr.sure);
+  if(sure.length>=2)return sure.slice(0,40);
+  return out.slice(0,40);
+}
+
+// fill in missing positions: A1, A2, ... continuing from the last one that was read
+function renumber(list){
+  let side="A",num=0;
+  list.forEach(tr=>{
+    const mm=tr.p&&tr.p.match(/^([A-F])([0-9]+)$/);
+    if(mm){side=mm[1];num=+mm[2]}else{num++;tr.p=side+num}
+  });
+  return list;
+}
+// Besides the tracks, a sleeve or a centre label states the title, the label,
+// the catalogue number and the year. Vision also reports how tall each line is,
+// and on a sleeve the title is printed larger than everything around it.
+const TRACKISH=/^[A-Fa-f]\s?[0-9]{1,2}\b|\b[0-9]{1,2}:[0-5][0-9]\b/;
+function parseInfo(lines, heights, tracks){
+  const info={title:"",artist:"",label:"",cat:"",year:"",country:""};
+  const sure={};
+  const cands=[];
+  lines.forEach((raw,i)=>{
+    const l=String(raw).replace(/\s+/g," ").trim();
+    if(!l)return;
+    const h=heights?heights[i]:0;
+    const my=l.match(/\b(19|20)[0-9]{2}\b/);
+    if(my&&!info.year){info.year=my[0];sure.year=true}
+    const mco=l.match(/made in ([A-Za-z ]{3,20})/i);
+    if(mco&&!info.country)info.country=mco[1].trim().replace(/\s+$/,"");
+    const mc=l.match(/\b([A-Z][A-Z0-9]{1,6}[ -]?[0-9]{2,5})\b/);
+    if(mc&&!info.cat&&!/\b(19|20)[0-9]{2}\b/.test(mc[1])&&!TRACKISH.test(l)){info.cat=mc[1].replace(/ /g,"");sure.cat=true}
+    if(!info.label&&/(records|recordings|schallplatten|musique|music|wax|vinyl|audio|sounds?)\b/i.test(l)&&l.length<42&&!TRACKISH.test(l)){
+      info.label=l.split(/,|\bmade in\b|\bdistribut/i)[0]
+        .replace(/[℗©]/g,"").replace(/\b(19|20)[0-9]{2}\b/g,"").replace(/&/g,"").replace(/\s+/g," ").trim();
+      sure.label=true;
+    }
+    if(!TRACKISH.test(l)&&!SKIP.test(l)&&l.length>2&&l.length<50&&/[a-z\u0370-\u04ff\u0590-\u05ff]/i.test(l))cands.push({l,h});
+  });
+  if(info.country)info.year=info.year?info.year+" · "+info.country:info.country;
+  // every track by the same artist means the record is by that artist
+  const artists=[...new Set(tracks.map(tr=>tr.a).filter(Boolean))];
+  if(artists.length===1){info.artist=artists[0];sure.artist=true}
+  else if(artists.length>2){info.artist="Various";sure.artist=true}
+  const rest=cands.filter(c=>c.l!==info.label&&c.l!==info.cat&&c.l!==info.artist);
+  if(heights&&rest.length){
+    const sorted=rest.slice().sort((a,b)=>b.h-a.h);
+    const all=heights.filter(Boolean).slice().sort((a,b)=>a-b);
+    const med=all.length?all[all.length>>1]:0;      // the size of ordinary text on the sleeve
+    info.title=sorted[0].l;
+    sure.title=rest.length===1||sorted[0].h>med*1.2;
+    if(!info.artist&&sorted[1]){info.artist=sorted[1].l;sure.artist=false}
+  }else if(rest.length){
+    info.title=rest[0].l;sure.title=false;
+  }
+  return {info,sure};
+}
+window.__scanResult=items=>{
+  scanReset();
+  if(!Array.isArray(items))return;
+  const found=parseScan(items);
+  const lines=scanLines(items);
+  const heights=lines.map((_,i)=>0);
+  // line height: the tallest piece of text that went into that line
+  const rows=[];items.slice().sort((a,b)=>(b.y-a.y)||(a.x-b.x)).forEach(it=>{
+    const r=rows[rows.length-1];
+    if(r&&Math.abs(r.y-it.y)<Math.max(0.012,it.h*0.6)){r.h=Math.max(r.h,it.h);r.y=(r.y+it.y)/2}
+    else rows.push({y:it.y,h:it.h});
+  });
+  rows.forEach((r,i)=>{if(i<heights.length)heights[i]=r.h});
+  const {info,sure}=parseInfo(lines,heights,found);
+  if(!found.some(tr=>tr.sure)&&!Object.keys(sure).length){alert(t("scan_none"));return}
+  showScan(found,info,sure);
+};
+$("pasteBtn").onclick=()=>{
+  const box=document.createElement("div");box.className="modal";
+  box.innerHTML=`<div class="box" role="dialog" aria-modal="true">
+    <h2>${esc(t("paste_title"))}</h2>
+    <textarea id="pasteText" dir="auto" rows="10" placeholder="${esc(t("paste_ph"))}" style="width:100%;font:inherit;font-size:15px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:8px;margin-top:8px"></textarea>
+    <div class="btns"><button class="main" data-act="parse">${esc(t("paste_do"))}</button><button data-act="cancel">${esc(t("cancel"))}</button></div>
+    <p class="hint">${esc(t("paste_hint"))}</p>
+  </div>`;
+  document.body.appendChild(box);
+  box.querySelector("#pasteText").focus();
+  box.addEventListener("click",e=>{
+    if(e.target===box){box.remove();return}
+    const act=e.target.dataset.act;if(!act)return;
+    if(act==="cancel"){box.remove();return}
+    const lines=box.querySelector("#pasteText").value.split(/\r?\n/);
+    const found=parseLines(lines);
+    box.remove();
+    if(!found.length){alert(t("scan_none"));return}
+    const {info,sure}=parseInfo(lines,null,found);
+    showScan(found,info,sure);
+  });
+};
+
+const INFO_KEYS=[["title","f_title"],["artist","f_artist"],["label","f_label"],["cat","f_cat"],["year","f_year"]];
+function showScan(found,info,sure){
+  info=info||{};sure=sure||{};
+  const box=document.createElement("div");box.className="modal";
+  box.innerHTML=`<div class="box" role="dialog" aria-modal="true">
+    <h2>${esc(t("scan_title"))}</h2>
+    <p class="hint" style="margin-top:0" id="scanCount"></p>
+    ${INFO_KEYS.some(([k])=>info[k])?`<h2 style="font-size:15px;margin-top:12px">${esc(t("rec_found"))}</h2>
+    <ul class="scanlist">${INFO_KEYS.filter(([k])=>info[k]).map(([k,lbl])=>
+      `<li><input type="checkbox" id="si_${k}" data-si="${k}" ${sure[k]?"checked":""}><label class="n" for="si_${k}" dir="auto"><b>${esc(t(lbl))}:</b> ${esc(info[k])}</label></li>`).join("")}</ul>`:""}
+    <ul class="scanlist">${found.map((tr,i)=>`<li><input type="checkbox" id="sc${i}" data-sc="${i}" ${tr.sure?"checked":""}><span class="p">${esc(tr.p)}</span><label class="n" for="sc${i}" dir="auto">${tr.a?`<b>${esc(tr.a)}</b> – `:""}${esc(tr.n)}</label><span class="t">${esc([tr.t,tr.b&&tr.b+" BPM"].filter(Boolean).join(" · "))}</span></li>`).join("")}</ul>
+    <div class="btns"><button class="main" data-act="replace">${esc(t("scan_replace"))}</button><button data-act="append">${esc(t("scan_append"))}</button><button data-act="cancel">${esc(t("cancel"))}</button></div>
+  </div>`;
+  document.body.appendChild(box);
+  const picked=()=>found.filter((_,i)=>box.querySelector(`[data-sc="${i}"]`).checked);
+  const count=()=>box.querySelector("#scanCount").textContent=t("scan_sel",{n:picked().length});
+  count();
+  box.addEventListener("change",count);
+  box.addEventListener("click",e=>{
+    if(e.target===box){box.remove();return}
+    const act=e.target.dataset.act;if(!act)return;
+    if(act!=="cancel"){
+      INFO_KEYS.forEach(([k])=>{
+        const cb=box.querySelector(`[data-si="${k}"]`);
+        if(cb&&cb.checked&&info[k])rec[k]=info[k];
+      });
+      fillForm();
+      const list=picked();
+      changed();
+      if(list.length){list.forEach(tr=>{if(!tr.fixed)tr.p="";delete tr.fixed;delete tr.sure});renumber(list);rec.tracks=act==="replace"?list:rec.tracks.filter(tr=>tr.a||tr.n||tr.b||tr.t).concat(list);drawTracks();changed()}
+    }
+    box.remove();
+  });
+}
+
+let mState=null,lastResult=null;
+async function startMeasure(){
+  if(mState)return;
+  $("mResult").style.display="none";
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});}
+  catch(e){lastResult=[0,0,false,(e&&e.name==="NotAllowedError")?(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()?"mic_denied_app":"mic_denied"):"mic_unavail"];showResult(...lastResult);return;}
+  const AC=window.AudioContext||window.webkitAudioContext;const ctx=new AC();await ctx.resume();
+  const src=ctx.createMediaStreamSource(stream);const lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=150;lp.Q.value=0.7;
+  const proc=ctx.createScriptProcessor(4096,1,1);const mute=ctx.createGain();mute.gain.value=0;
+  const chunks=[];let total=0;const need=+$("mDur").value*ctx.sampleRate;
+  const raw=ctx.createAnalyser();raw.fftSize=1024;src.connect(raw);const buf=new Float32Array(raw.fftSize);
+  src.connect(lp);lp.connect(proc);proc.connect(mute);mute.connect(ctx.destination);
+  mState={stream,ctx};
+  $("mLive").style.display="block";$("mStart").disabled=true;$("mAgain").disabled=true;
+  proc.onaudioprocess=ev=>{if(!mState)return;const d=ev.inputBuffer.getChannelData(0);chunks.push(new Float32Array(d));total+=d.length;
+    raw.getFloatTimeDomainData(buf);let m=0;for(const v of buf)m=Math.max(m,Math.abs(v));$("mLevel").style.width=Math.min(100,m*140)+"%";
+    $("mProg").style.width=Math.min(100,total/need*100)+"%";$("mLeft").textContent=t("left",{n:Math.max(0,Math.ceil((need-total)/ctx.sampleRate))});
+    if(total>=need)finish();};
+  function finish(){
+    const sr=ctx.sampleRate;proc.onaudioprocess=null;stream.getTracks().forEach(tr=>tr.stop());try{ctx.close()}catch(e){}mState=null;
+    $("mLive").style.display="none";$("mStart").disabled=false;$("mAgain").disabled=false;
+    const x=new Float32Array(total);let o=0;for(const c of chunks){x.set(c,o);o+=c.length}
+    const [lo,hi]=$("mRange").value.split("-").map(Number);
+    let peak=0;for(let i=0;i<x.length;i+=64)peak=Math.max(peak,Math.abs(x[i]));
+    if(peak<0.002){lastResult=[0,0,false,"silent"]}else{const r=detectBPM(x,sr,{lo,hi});lastResult=[r.bpm,r.confidence,false,null]}
+    showResult(...lastResult);
+  }
+}
+function showResult(bpm,conf,tapped,msg){
+  const i=+$("mTrack").value,tr=rec.tracks[i];
+  $("mResult").style.display="block";
+  if(msg){$("mBpm").textContent="";$("mExact").textContent="";$("mUnit").style.display="none";$("mUse").style.display="none";$("mConf").textContent=t(msg);return;}
+  $("mUnit").style.display="";
+  $("mBpm").textContent=Math.round(bpm);$("mExact").textContent=bpm.toFixed(1);
+  $("mConf").textContent=tapped?t("tap_note"):t(conf>=0.8?"conf_high":conf>=0.65?"conf_mid":"conf_low");
+  $("mUse").style.display="";$("mUse").textContent=t("use",{p:tr?tr.p:""});$("mUse").dataset.bpm=Math.round(bpm);
+}
+$("mStart").onclick=startMeasure;$("mAgain").onclick=startMeasure;
+$("mUse").onclick=()=>{const i=+$("mTrack").value;if(!rec.tracks[i])return;rec.tracks[i].b=$("mUse").dataset.bpm;drawTracks();changed();
+  if(i+1<rec.tracks.length)$("mTrack").value=i+1;$("mResult").style.display="none";lastResult=null;};
+let taps=[];
+$("tap").onclick=()=>{const now=performance.now();if(taps.length&&now-taps[taps.length-1]>2000)taps=[];taps.push(now);if(taps.length>12)taps.shift();
+  if(taps.length<5){$("tap").textContent=`${t("tap")} (${taps.length})`;return}
+  $("tap").textContent=t("tap");const iv=(taps[taps.length-1]-taps[0])/(taps.length-1);lastResult=[60000/iv,1,true,null];showResult(...lastResult);};
+
+// ----- steps on a phone, everything at once on a big screen -----
+const STEPS=["s_lib","s_rec","s_tracks","s_mic","s_label","s_print"];
+const narrow=window.matchMedia("(max-width:900px)");
+let step=Math.min(STEPS.length-1,Math.max(0,+load("vl_step",0)||0));
+function drawStep(){
+  document.body.classList.toggle("steps",narrow.matches);
+  document.querySelectorAll("[data-step]").forEach(el=>el.classList.toggle("on",+el.dataset.step===step));
+  $("stepName").textContent=t(STEPS[step]);
+  $("stepNum").textContent=t("step_of",{a:step+1,b:STEPS.length});
+  $("prev").disabled=step===0;$("next").disabled=step===STEPS.length-1;
+  $("dots").innerHTML=STEPS.map((k,i)=>`<span class="dot ${i===step?"on":""}" title="${esc(t(k))}"></span>`).join("");
+  drawMock();requestAnimationFrame(drawMock);
+}
+function goStep(i){step=Math.max(0,Math.min(STEPS.length-1,i));save("vl_step",step);drawStep();window.scrollTo({top:0,behavior:"smooth"})}
+$("prev").onclick=()=>goStep(step-1);
+$("next").onclick=()=>goStep(step+1);
+
+narrow.addEventListener("change",drawStep);
+
+// ----- how the label looks on a real sleeve or record -----
+let view=load("vl_view","flat");
+const SLEEVE_MM=315, DISC_MM=302, CENTER_MM=100, HOLE_MM=7;
+function drawMock(){
+  [...$("viewSel").children].forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.view===view)));
+  const box=$("mock"),flat=view==="flat";
+  $("stage").style.display=flat?"":"none";
+  box.style.display=flat?"none":"";
+  $("mockHint").style.display=flat?"none":"";
+  if(flat)return;
+  const round=set.shape==="round";
+  const labelH=round?ROUND_MM:labelHeightPx()/PX_MM, labelW=round?ROUND_MM:62;
+  const avail=Math.max(160,(box.getBoundingClientRect().width||box.clientWidth||300)-6);
+  const mm=view==="sleeve"?SLEEVE_MM:DISC_MM;
+  const s=Math.min(avail,420)/mm, k=s/PX_MM;
+  const left=view==="sleeve"?18:(mm-labelW)/2, top=view==="sleeve"?18:(mm-labelH)/2;
+  box.innerHTML=`<div class="mock ${view==="sleeve"?"sleeve":"disc"}" style="width:${mm*s}px;height:${mm*s}px">
+    ${view==="sleeve"?`<div class="spine" style="width:${3*s}px"></div>`:
+      `<div class="center" style="width:${CENTER_MM*s}px;height:${CENTER_MM*s}px"></div><div class="hole" style="width:${HOLE_MM*s}px;height:${HOLE_MM*s}px"></div>`}
+    <div class="lblwrap" style="left:${left*s}px;top:${top*s}px;transform:scale(${k})">${labelHTML(rec,set)}</div>
+  </div>`;
+  fillQR(box);
+}
+$("viewSel").addEventListener("click",e=>{const v=e.target.dataset.view;if(v){view=v;save("vl_view",v);drawMock()}});
+window.addEventListener("resize",()=>{if(view!=="flat")drawMock()});
+
+applyLang();
+drawStep();
+
+// on the website, keep a copy for offline use (the iPhone app already carries its files)
+if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol)&&!inApp()){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>changed());
+</script>
+</body>
+</html>
